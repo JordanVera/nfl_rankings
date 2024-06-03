@@ -2,15 +2,19 @@
   "name": "nfl_rankings",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npx prisma generate"
+    "postinstall": "npx prisma generate",
+    "data": "node ./src/scripts/getData.js"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
+    "@tensorflow/tfjs-node": "^4.19.0",
+    "dotenv": "^16.4.5",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18"
