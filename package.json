@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "npx prisma generate",
-    "data": "node ./src/scripts/getData.js"
+    "data": "node ./src/models/top32TeamsModel.js"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
