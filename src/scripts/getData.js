@@ -34,11 +34,11 @@ export const fetchSeasonGameData = async (season, teamIds) => {
     })
   );
 
-  console.log({ resultsForEachTeamBySeason });
-  console.log(
-    'length of resultsForEachTeamBySeason: ',
-    resultsForEachTeamBySeason.length
-  );
+  // console.log({ resultsForEachTeamBySeason });
+  // console.log(
+  //   'length of resultsForEachTeamBySeason: ',
+  //   resultsForEachTeamBySeason.length
+  // );
 
   return resultsForEachTeamBySeason;
 };

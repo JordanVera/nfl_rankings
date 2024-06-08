@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import colors from 'colors';
 import * as tf from '@tensorflow/tfjs-node';
 import {
   fetchAllTeamsAndReturnTeamIds,
@@ -43,6 +44,9 @@ const preprocessData = (data) => {
       opponentScore: game.OpponentScore,
     }))
   );
+
+  // console.log('_________________Featuresssss_________________');
+  // console.log(features);
 
   // Flatten the array and normalize features
   const flattenedFeatures = features.flat();
@@ -112,6 +116,7 @@ const normalizeFeatures = (features) => {
 
 // Helper functions for mean and standard deviation
 const mean = (data) => data.reduce((a, b) => a + b, 0) / data.length;
+
 const std = (data) => {
   const dataMean = mean(data);
   return Math.sqrt(
@@ -152,12 +157,12 @@ const main = async () => {
 
     const model = createModel();
 
-    console.log('Input Tensors');
-    console.log(inputTensor.print());
-    console.log(inputTensor.shape);
-    console.log('Output Tensors');
-    console.log(outputTensor.print());
-    console.log(outputTensor.shape);
+    // console.log('Input Tensors');
+    // console.log(inputTensor.print());
+    // console.log(inputTensor.shape);
+    // console.log('Output Tensors');
+    // console.log(outputTensor.print());
+    // console.log(outputTensor.shape);
 
     async function trainModel(model, inputTensor, outputTensor) {
       await model.fit(inputTensor, outputTensor, {
@@ -173,6 +178,9 @@ const main = async () => {
     // Predict scores for each game
     const predictions = model.predict(inputTensor);
     const predictionValues = await predictions.array();
+
+    console.log('Prediction Values'.green.bold);
+    console.log(predictionValues);
 
     // Aggregate predictions by team
     const teamScores = {};
@@ -209,7 +217,7 @@ const main = async () => {
       }))
       .sort((a, b) => b.score - a.score);
 
-    console.log('Ranked Teams');
+    console.log('Ranked Teams'.green.bold);
     rankedTeams.forEach((team, index) => {
       console.log(
         `${index + 1}. ${team.teamName} - Score: ${team.score.toFixed(2)}`
