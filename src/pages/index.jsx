@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
+// import * as tfvis from '@tensorflow/tfjs-vis';
 
 // Fetch team IDs
 const fetchAllTeamsAndReturnTeamIds = async () => {
@@ -176,10 +177,15 @@ const IndexPage = () => {
 
       const model = createModel();
 
-      await model.fit(inputTensor, outputTensor, {
+      const surface = { name: 'Model Training', tab: 'Training' };
+      const history = await model.fit(inputTensor, outputTensor, {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0.2,
+        callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
+          height: 200,
+          callbacks: ['onEpochEnd'],
+        }),
       });
 
       // Predict scores for each game
@@ -232,6 +238,8 @@ const IndexPage = () => {
       <button onClick={handleGetStandings} disabled={loading}>
         {loading ? 'Loading...' : 'Get Standings'}
       </button>
+
+      <div id="tfjs-vis-container" />
       <ul>
         {rankedTeams.map((team, index) => (
           <li key={team.teamId}>
