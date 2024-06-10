@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 export const fetchAllTeamsAndReturnTeamIds = async () => {
   const response = await fetch(
-    `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.SPORTSDATAIO_API_KEY}`,
+    `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`,
     {
       method: 'GET',
     }
@@ -23,7 +23,7 @@ export const fetchSeasonGameData = async (season, teamIds) => {
   const resultsForEachTeamBySeason = await Promise.all(
     teamIds.map(async (teamId) => {
       const response = await fetch(
-        `https://api.sportsdata.io/v3/nfl/scores/json/TeamGameStatsBySeason/${season}/${teamId}/all?key=${process.env.SPORTSDATAIO_API_KEY}`,
+        `https://api.sportsdata.io/v3/nfl/scores/json/TeamGameStatsBySeason/${season}/${teamId}/all?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`,
         {
           method: 'GET',
         }

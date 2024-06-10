@@ -232,4 +232,13 @@ const main = async () => {
   }
 };
 
-main();
+// main();
+
+try {
+  const teamIds = await fetchAllTeamsAndReturnTeamIds();
+  const gameData = await fetchSeasonGameData(2023, teamIds);
+
+  console.log(gameData);
+} catch (error) {
+  console.log(error);
+}
