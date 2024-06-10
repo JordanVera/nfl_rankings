@@ -202,11 +202,15 @@ const main = async () => {
         method: 'GET',
       }
     );
+
     const teams = await response.json();
     const teamNames = teams.reduce((acc, team) => {
       acc[team.TeamID] = team.Name;
       return acc;
     }, {});
+
+    console.log('teamScores'.green.bold);
+    console.log(teamScores);
 
     // Rank teams based on scores
     const rankedTeams = Object.entries(teamScores)
