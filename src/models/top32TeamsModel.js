@@ -170,7 +170,7 @@ const main = async () => {
         batchSize: 32,
         validationSplit: 0.2,
       });
-      console.log('Model trained!');
+      console.log('Model trained!'.green.bold);
     }
 
     await trainModel(model, inputTensor, outputTensor);
