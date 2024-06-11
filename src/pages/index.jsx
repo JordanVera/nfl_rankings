@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
+import Image from 'next/image';
 // import * as tfvis from '@tensorflow/tfjs-vis';
 
 // Fetch team IDs
@@ -246,9 +247,16 @@ const IndexPage = () => {
       <div id="tfjs-vis-container" />
       <ul>
         {rankedTeams.map((team, index) => (
-          <li key={team.teamId}>
-            {index + 1}. {team.teamName} - Score: {team.score.toFixed(2)}
-          </li>
+          <div key={team.teamId} className="flex flex-row gap-5">
+            <Image
+              src={`/media/teamLogos/${team.teamName.toLowerCase()}.png`}
+              height={40}
+              width={40}
+            />
+            <li>
+              {index + 1}. {team.teamName} - Score: {team.score.toFixed(2)}
+            </li>
+          </div>
         ))}
       </ul>
     </main>
