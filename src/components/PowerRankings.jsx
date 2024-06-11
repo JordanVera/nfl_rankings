@@ -185,10 +185,10 @@ const PowerRankings = () => {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0.2,
-        callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
-          height: 200,
-          callbacks: ['onEpochEnd'],
-        }),
+        // callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
+        //   height: 200,
+        //   callbacks: ['onEpochEnd'],
+        // }),
       });
 
       // Predict scores for each game
@@ -237,11 +237,11 @@ const PowerRankings = () => {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
+      <div className="flex justify-center">
         <button
           onClick={handleGetStandings}
           disabled={loading}
-          className="flex gap-2.5 items-center bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
+          className="flex gap-2.5 items-center bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md"
         >
           <AutoAwesomeIcon />
           {'Train Power Rankings Model'}
@@ -250,10 +250,10 @@ const PowerRankings = () => {
 
       {loading && <ScaleLoader color="#36d7b7" />}
 
-      {rankedTeams.length > 0 && (
+      {!loading && rankedTeams.length > 0 && (
         <table className="w-[800px]">
           <thead className="flex flex-row gap-10 ">
-            <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3">
+            <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3 px-2">
               <th>Rank</th>
               <th>Team</th>
               <th className="ml-auto">Score</th>
