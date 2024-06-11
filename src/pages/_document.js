@@ -8,7 +8,7 @@ export default function Document() {
         <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
         <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
       </Head>
-      <body>
+      <body className="bg-black">
         <Topbar />
         <Main />
         <NextScript />

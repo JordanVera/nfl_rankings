@@ -2,9 +2,9 @@ import Jumbotron from '@/components/Jumbotron';
 
 const about = () => {
   return (
-    <div className="max-w-[1200px] mx-auto m-5">
+    <main className="max-w-[1200px] mx-auto m-5">
       <Jumbotron />
-    </div>
+    </main>
   );
 };
 export default about;
