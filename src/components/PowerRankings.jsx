@@ -235,6 +235,8 @@ const PowerRankings = () => {
     }
   };
 
+  // https://api.sportsdata.io/v3/nfl/scores/json/DepthCharts?key=c1a651416768401d992783c7225dcdbc
+
   return (
     <div className="flex flex-col gap-5 w-full">
       <div className="flex justify-center">
