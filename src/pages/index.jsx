@@ -182,10 +182,10 @@ const IndexPage = () => {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0.2,
-        callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
-          height: 200,
-          callbacks: ['onEpochEnd'],
-        }),
+        // callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
+        //   height: 200,
+        //   callbacks: ['onEpochEnd'],
+        // }),
       });
 
       // Predict scores for each game
@@ -233,9 +233,13 @@ const IndexPage = () => {
   };
 
   return (
-    <div>
-      <h1>NFL Team Rankings</h1>
-      <button onClick={handleGetStandings} disabled={loading}>
+    <main className="m-5">
+      <h1 className="text-center text-2xl font-bold">NFL Team Rankings</h1>
+      <button
+        onClick={handleGetStandings}
+        disabled={loading}
+        className="bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
+      >
         {loading ? 'Loading...' : 'Get Standings'}
       </button>
 
@@ -247,7 +251,7 @@ const IndexPage = () => {
           </li>
         ))}
       </ul>
-    </div>
+    </main>
   );
 };
 
