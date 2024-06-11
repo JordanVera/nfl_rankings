@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import Image from 'next/image';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { ScaleLoader } from 'react-spinners';
 // import * as tfvis from '@tensorflow/tfjs-vis';
 
 // Fetch team IDs
@@ -243,11 +244,13 @@ const PowerRankings = () => {
           className="flex gap-2.5 items-center bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
         >
           <AutoAwesomeIcon />
-          {loading ? 'Loading...' : 'Get Standings'}
+          {'Train Power Rankings Model'}
         </button>
       </div>
 
       <div id="tfjs-vis-container" />
+
+      {loading && <ScaleLoader color="#36d7b7" />}
 
       {rankedTeams.length > 0 && (
         <table className="w-[800px]">
