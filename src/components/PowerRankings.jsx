@@ -236,7 +236,7 @@ const PowerRankings = () => {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 w-full">
       <div className="flex justify-center">
         <button
           onClick={handleGetStandings}
@@ -251,7 +251,7 @@ const PowerRankings = () => {
       {loading && <ScaleLoader color="#36d7b7" />}
 
       {!loading && rankedTeams.length > 0 && (
-        <table className="w-[800px]">
+        <table>
           <thead className="flex flex-row gap-10 ">
             <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3 px-2">
               <th>Rank</th>

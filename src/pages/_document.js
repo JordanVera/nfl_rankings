@@ -1,3 +1,4 @@
+import Topbar from '@/components/Topbar';
 import { Html, Head, Main, NextScript } from 'next/document';
 
 export default function Document() {
@@ -8,6 +9,7 @@ export default function Document() {
         <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
       </Head>
       <body>
+        <Topbar />
         <Main />
         <NextScript />
       </body>
