@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import Image from 'next/image';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 // import * as tfvis from '@tensorflow/tfjs-vis';
 
 // Fetch team IDs
@@ -238,15 +239,16 @@ const PowerRankings = () => {
       <button
         onClick={handleGetStandings}
         disabled={loading}
-        className="bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
+        className="flex gap-2.5 items-center bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
       >
+        <AutoAwesomeIcon />
         {loading ? 'Loading...' : 'Get Standings'}
       </button>
 
       <div id="tfjs-vis-container" />
-      <table className="w-[800px] border border-gray-700">
-        <thead className="flex flex-row gap-10 bg-gray-800 py-3 border border-gray-700">
-          <tr className="flex flex-row gap-10 items-center w-full">
+      <table className="w-[800px]">
+        <thead className="flex flex-row gap-10 ">
+          <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3">
             <th>Rank</th>
             <th>Team</th>
             <th className="ml-auto">Score</th>
@@ -256,8 +258,8 @@ const PowerRankings = () => {
           {rankedTeams.map((team, index) => (
             <tr
               key={team.teamId}
-              className={` ${
-                index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'
+              className={` ${index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'} ${
+                index === rankedTeams.length - 1 ? 'rounded-b-lg' : ''
               } flex flex-row gap-10 items-center  p-2.5 border border-gray-700`}
             >
               <td className="text-right">{index + 1}</td>
