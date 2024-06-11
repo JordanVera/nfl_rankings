@@ -185,10 +185,10 @@ const PowerRankings = () => {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0.2,
-        // callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
-        //   height: 200,
-        //   callbacks: ['onEpochEnd'],
-        // }),
+        callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
+          height: 200,
+          callbacks: ['onEpochEnd'],
+        }),
       });
 
       // Predict scores for each game
@@ -247,8 +247,6 @@ const PowerRankings = () => {
           {'Train Power Rankings Model'}
         </button>
       </div>
-
-      <div id="tfjs-vis-container" />
 
       {loading && <ScaleLoader color="#36d7b7" />}
 
