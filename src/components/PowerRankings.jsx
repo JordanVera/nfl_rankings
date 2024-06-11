@@ -235,15 +235,17 @@ const PowerRankings = () => {
   };
 
   return (
-    <div>
-      <button
-        onClick={handleGetStandings}
-        disabled={loading}
-        className="flex gap-2.5 items-center bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
-      >
-        <AutoAwesomeIcon />
-        {loading ? 'Loading...' : 'Get Standings'}
-      </button>
+    <div className="flex flex-col gap-5">
+      <div>
+        <button
+          onClick={handleGetStandings}
+          disabled={loading}
+          className="flex gap-2.5 items-center bg-gradient-to-r from-green-500 via-blue-500 to-purple-600 hover:bg-gradient-to-l px-4 py-2 rounded-md"
+        >
+          <AutoAwesomeIcon />
+          {loading ? 'Loading...' : 'Get Standings'}
+        </button>
+      </div>
 
       <div id="tfjs-vis-container" />
 
