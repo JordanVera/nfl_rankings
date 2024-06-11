@@ -246,36 +246,41 @@ const PowerRankings = () => {
       </button>
 
       <div id="tfjs-vis-container" />
-      <table className="w-[800px]">
-        <thead className="flex flex-row gap-10 ">
-          <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3">
-            <th>Rank</th>
-            <th>Team</th>
-            <th className="ml-auto">Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rankedTeams.map((team, index) => (
-            <tr
-              key={team.teamId}
-              className={` ${index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'} ${
-                index === rankedTeams.length - 1 ? 'rounded-b-lg' : ''
-              } flex flex-row gap-10 items-center  p-2.5 border border-gray-700`}
-            >
-              <td className="text-right">{index + 1}</td>
-              <td className="flex flex-row items-center gap-5">
-                <Image
-                  src={`/media/teamLogos/${team.teamName.toLowerCase()}.png`}
-                  height={40}
-                  width={40}
-                />
-                {team.teamName}
-              </td>
-              <td className="ml-auto">{team.score.toFixed(2)}</td>
+
+      {rankedTeams.length > 0 && (
+        <table className="w-[800px]">
+          <thead className="flex flex-row gap-10 ">
+            <tr className="flex flex-row gap-10 items-center w-full rounded-t-lg border border-gray-700 bg-gray-800 py-3">
+              <th>Rank</th>
+              <th>Team</th>
+              <th className="ml-auto">Score</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rankedTeams.map((team, index) => (
+              <tr
+                key={team.teamId}
+                className={` ${
+                  index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'
+                } ${
+                  index === rankedTeams.length - 1 ? 'rounded-b-lg' : ''
+                } flex flex-row gap-10 items-center  p-2.5 border border-gray-700`}
+              >
+                <td className="text-right">{index + 1}</td>
+                <td className="flex flex-row items-center gap-5">
+                  <Image
+                    src={`/media/teamLogos/${team.teamName.toLowerCase()}.png`}
+                    height={40}
+                    width={40}
+                  />
+                  {team.teamName}
+                </td>
+                <td className="ml-auto">{team.score.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };
