@@ -34,6 +34,7 @@ export interface GameStats {
   TimeOfPossession: string;
   Score: number;
   OpponentScore: number;
+  opponentTeamId: string;
 }
 
 export interface ProcessedFeature {

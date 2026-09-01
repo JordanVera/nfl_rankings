@@ -274,6 +274,7 @@ const boxscoreSide = (
     TimeOfPossession: possessionDisplay(ownStats.possessionTime),
     Score: ownScore,
     OpponentScore: opponentScore,
+    opponentTeamId: opponent.team?.id ?? '',
   };
 };
 
