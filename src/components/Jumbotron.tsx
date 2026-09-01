@@ -1,17 +1,17 @@
-const Jumbotron = () => {
+export default function Jumbotron() {
   return (
     <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-5 rounded-lg w-full border border-gray-600">
-      <div class=" text-white p-6 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold mb-4">NFL Power Rankings Model</h1>
-        <p class="mb-6">
+      <div className="text-white p-6 rounded-lg shadow-lg">
+        <h1 className="text-3xl font-bold mb-4">NFL Power Rankings Model</h1>
+        <p className="mb-6">
           Our NFL Power Rankings model leverages advanced machine learning
           techniques to evaluate and rank the performance of NFL teams based on
           a comprehensive set of metrics. This model is designed to provide an
           objective and data-driven assessment of team strength throughout the
           season.
         </p>
-        <h3 class="text-2xl font-semibold mb-4">Model Overview</h3>
-        <p class="mb-6">
+        <h3 className="text-2xl font-semibold mb-4">Model Overview</h3>
+        <p className="mb-6">
           The model uses a neural network architecture to predict team
           performance and generate power rankings. It consists of multiple dense
           layers, each designed to capture complex relationships between various
@@ -19,14 +19,14 @@ const Jumbotron = () => {
           game data, ensuring that the rankings are both accurate and
           up-to-date.
         </p>
-        <h3 class="text-2xl font-semibold mb-4">Input Features</h3>
-        <p class="mb-6">
-          The model's input features are meticulously chosen to encompass all
-          critical aspects of a team's performance. These features include:
+        <h3 className="text-2xl font-semibold mb-4">Input Features</h3>
+        <p className="mb-6">
+          The model&apos;s input features are meticulously chosen to encompass all
+          critical aspects of a team&apos;s performance. These features include:
         </p>
-        <div class="ml-4 mb-6">
-          <h4 class="text-xl font-semibold mb-2">Offensive Metrics</h4>
-          <ul class="list-disc list-inside mb-4">
+        <div className="ml-4 mb-6">
+          <h4 className="text-xl font-semibold mb-2">Offensive Metrics</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
               <span className="font-bold">Offensive Yards:</span> Total yards
               gained on offense.
@@ -60,8 +60,8 @@ const Jumbotron = () => {
               Successful red zone attempts resulting in scores.
             </li>
           </ul>
-          <h4 class="text-xl font-semibold mb-2">Defensive Metrics</h4>
-          <ul class="list-disc list-inside mb-4">
+          <h4 className="text-xl font-semibold mb-2">Defensive Metrics</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
               <span className="font-bold">Opponent Offensive Yards:</span> Total
               yards allowed to the opponent.
@@ -76,7 +76,7 @@ const Jumbotron = () => {
             </li>
             <li>
               <span className="font-bold">Opponent Completion Percentage:</span>{' '}
-              Opponent's pass completion rate.
+              Opponent&apos;s pass completion rate.
             </li>
             <li>
               <span className="font-bold">Opponent First Downs:</span> First
@@ -99,8 +99,8 @@ const Jumbotron = () => {
               Red zone attempts resulting in scores by the opponent.
             </li>
           </ul>
-          <h4 class="text-xl font-semibold mb-2">Special Teams Metrics</h4>
-          <ul class="list-disc list-inside mb-4">
+          <h4 className="text-xl font-semibold mb-2">Special Teams Metrics</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
               <span className="font-bold">Kick Return Yards:</span> Yards gained
               on kick returns.
@@ -117,8 +117,8 @@ const Jumbotron = () => {
               <span className="font-bold">Punts:</span> Total punts made.
             </li>
           </ul>
-          <h4 class="text-xl font-semibold mb-2">Turnovers and Penalties</h4>
-          <ul class="list-disc list-inside mb-4">
+          <h4 className="text-xl font-semibold mb-2">Turnovers and Penalties</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
               <span className="font-bold">Turnovers:</span> Total giveaways by
               the team.
@@ -136,15 +136,15 @@ const Jumbotron = () => {
               due to penalties.
             </li>
           </ul>
-          <h4 class="text-xl font-semibold mb-2">Time of Possession</h4>
-          <ul class="list-disc list-inside mb-4">
+          <h4 className="text-xl font-semibold mb-2">Time of Possession</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
-              <span className="font-bold">Time of Possesion:</span>Time the team
+              <span className="font-bold">Time of Possession:</span> Time the team
               controls the ball per game, converted to seconds for consistency.
             </li>
           </ul>
-          <h4 class="text-xl font-semibold mb-2">Scoring Metrics</h4>
-          <ul class="list-disc list-inside mb-4">
+          <h4 className="text-xl font-semibold mb-2">Scoring Metrics</h4>
+          <ul className="list-disc list-inside mb-4">
             <li>
               <span className="font-bold">Score:</span> Total points scored by
               the team.
@@ -155,14 +155,13 @@ const Jumbotron = () => {
             </li>
           </ul>
         </div>
-        <p class="mb-6">
+        <p className="mb-6">
           By combining these features, our model provides a holistic view of
-          each team's performance, allowing for accurate and fair rankings. The
+          each team&apos;s performance, allowing for accurate and fair rankings. The
           model is continuously updated with the latest game data, ensuring that
           the power rankings reflect the most current team performances.
         </p>
       </div>
     </div>
   );
-};
-export default Jumbotron;
+}

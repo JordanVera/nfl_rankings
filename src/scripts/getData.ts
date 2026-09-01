@@ -1,52 +1,75 @@
 import 'dotenv/config';
 import * as tf from '@tensorflow/tfjs-node';
+import type { GameStats, ProcessedFeature } from '../types/nfl';
 
-export const fetchAllTeamsAndReturnTeamIds = async () => {
+export const fetchAllTeamsAndReturnTeamIds = async (): Promise<number[]> => {
   const response = await fetch(
     `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.SPORTSDATAIO_API_KEY}`,
-    {
-      method: 'GET',
-    }
+    { method: 'GET' }
   );
 
   const json = await response.json();
-
-  // console.log({ json });
-
-  const teamIds = json.map((team) => team.TeamID);
+  const teamIds = (json as { TeamID: number }[]).map((team) => team.TeamID);
 
   console.log(teamIds);
 
   return teamIds;
 };
 
-export const fetchSeasonGameData = async (season, teamIds) => {
+export const fetchSeasonGameData = async (
+  season: number,
+  teamIds: number[]
+): Promise<GameStats[][]> => {
   const resultsForEachTeamBySeason = await Promise.all(
     teamIds.map(async (teamId) => {
       const response = await fetch(
         `https://api.sportsdata.io/v3/nfl/scores/json/TeamGameStatsBySeason/${season}/${teamId}/all?key=${process.env.SPORTSDATAIO_API_KEY}`,
-        {
-          method: 'GET',
-        }
+        { method: 'GET' }
       );
 
-      return response.json();
+      return response.json() as Promise<GameStats[]>;
     })
   );
-
-  // console.log({ resultsForEachTeamBySeason });
-  // console.log(
-  //   'length of resultsForEachTeamBySeason: ',
-  //   resultsForEachTeamBySeason.length
-  // );
 
   return resultsForEachTeamBySeason;
 };
 
-// Preprocess the data
-const preprocessData = (data) => {
-  // Extract relevant features and normalize
-  const features = data.map((teamGames) =>
+const parseTimeOfPossession = (timeStr: string): number => {
+  const [minutes, seconds] = timeStr.split(':').map(Number);
+  return minutes * 60 + seconds;
+};
+
+const mean = (data: number[]): number =>
+  data.reduce((a, b) => a + b, 0) / data.length;
+
+const std = (data: number[]): number => {
+  const dataMean = mean(data);
+  return Math.sqrt(
+    data.reduce((a, b) => a + (b - dataMean) ** 2, 0) / data.length
+  );
+};
+
+const normalizeFeatures = (features: ProcessedFeature[]): ProcessedFeature[] => {
+  const means: Record<string, number> = {};
+  const stds: Record<string, number> = {};
+
+  const featureNames = Object.keys(features[0]) as (keyof ProcessedFeature)[];
+  featureNames.forEach((name) => {
+    means[name] = mean(features.map((f) => f[name]));
+    stds[name] = std(features.map((f) => f[name]));
+  });
+
+  return features.map((f) => {
+    const normalized = { ...f };
+    featureNames.forEach((name) => {
+      normalized[name] = (f[name] - means[name]) / stds[name];
+    });
+    return normalized;
+  });
+};
+
+const preprocessData = (data: GameStats[][]) => {
+  const features: ProcessedFeature[][] = data.map((teamGames) =>
     teamGames.map((game) => ({
       offensiveYards: game.OffensiveYards,
       passingYards: game.PassingYards,
@@ -56,7 +79,6 @@ const preprocessData = (data) => {
       thirdDownConversions: game.ThirdDownConversions,
       fourthDownConversions: game.FourthDownConversions,
       redZoneConversions: game.RedZoneConversions,
-
       opponentOffensiveYards: game.OpponentOffensiveYards,
       opponentPassingYards: game.OpponentPassingYards,
       opponentRushingYards: game.OpponentRushingYards,
@@ -65,28 +87,23 @@ const preprocessData = (data) => {
       opponentThirdDownConversions: game.OpponentThirdDownConversions,
       opponentFourthDownConversions: game.OpponentFourthDownConversions,
       opponentRedZoneConversions: game.OpponentRedZoneConversions,
-
       kickReturnYards: game.KickReturnYards,
       puntReturnYards: game.PuntReturnYards,
       fieldGoalsMade: game.FieldGoalsMade,
       punts: game.Punts,
-
       turnovers: game.Giveaways,
       takeaways: game.Takeaways,
       penalties: game.Penalties,
       penaltyYards: game.PenaltyYards,
       timeOfPossession: parseTimeOfPossession(game.TimeOfPossession),
-
       score: game.Score,
       opponentScore: game.OpponentScore,
     }))
   );
 
-  // Flatten the array and normalize features
   const flattenedFeatures = features.flat();
   const normalizedFeatures = normalizeFeatures(flattenedFeatures);
 
-  // Convert to tensors
   const inputs = normalizedFeatures.map((f) => [
     f.offensiveYards,
     f.passingYards,
@@ -96,7 +113,6 @@ const preprocessData = (data) => {
     f.thirdDownConversions,
     f.fourthDownConversions,
     f.redZoneConversions,
-
     f.opponentOffensiveYards,
     f.opponentPassingYards,
     f.opponentRushingYards,
@@ -105,18 +121,15 @@ const preprocessData = (data) => {
     f.opponentThirdDownConversions,
     f.opponentFourthDownConversions,
     f.opponentRedZoneConversions,
-
     f.kickReturnYards,
     f.puntReturnYards,
     f.fieldGoalsMade,
     f.punts,
-
     f.turnovers,
     f.takeaways,
     f.penalties,
     f.penaltyYards,
     f.timeOfPossession,
-
     f.score,
     f.opponentScore,
   ]);
@@ -128,42 +141,6 @@ const preprocessData = (data) => {
   return { inputTensor, outputTensor };
 };
 
-// Normalize features
-const normalizeFeatures = (features) => {
-  const means = {};
-  const stds = {};
-
-  const featureNames = Object.keys(features[0]);
-  featureNames.forEach((name) => {
-    means[name] = mean(features.map((f) => f[name]));
-    stds[name] = std(features.map((f) => f[name]));
-  });
-
-  return features.map((f) => {
-    const normalized = {};
-    featureNames.forEach((name) => {
-      normalized[name] = (f[name] - means[name]) / stds[name];
-    });
-    return normalized;
-  });
-};
-
-// Helper functions for mean and standard deviation
-const mean = (data) => data.reduce((a, b) => a + b, 0) / data.length;
-const std = (data) => {
-  const dataMean = mean(data);
-  return Math.sqrt(
-    data.reduce((a, b) => a + (b - dataMean) ** 2, 0) / data.length
-  );
-};
-
-// Convert time of possession from "mm:ss" format to seconds
-const parseTimeOfPossession = (timeStr) => {
-  const [minutes, seconds] = timeStr.split(':').map(Number);
-  return minutes * 60 + seconds;
-};
-
-// Define the model
 const createModel = () => {
   const model = tf.sequential();
 
@@ -171,7 +148,7 @@ const createModel = () => {
     tf.layers.dense({ inputShape: [27], units: 64, activation: 'relu' })
   );
   model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 1 })); // Output layer for ranking score
+  model.add(tf.layers.dense({ units: 1 }));
 
   model.compile({
     optimizer: 'adam',
@@ -190,13 +167,17 @@ try {
   const model = createModel();
 
   console.log('Input Tensors');
-  console.log(inputTensor.print());
+  inputTensor.print();
   console.log(inputTensor.shape);
   console.log('Output Tensors');
-  console.log(outputTensor.print());
+  outputTensor.print();
   console.log(outputTensor.shape);
 
-  async function trainModel(model, inputTensor, outputTensor) {
+  async function trainModel(
+    model: tf.Sequential,
+    inputTensor: tf.Tensor,
+    outputTensor: tf.Tensor
+  ) {
     await model.fit(inputTensor, outputTensor, {
       epochs: 50,
       batchSize: 32,

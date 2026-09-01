@@ -1,37 +1,77 @@
+'use client';
+
 import { useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import Image from 'next/image';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { ScaleLoader } from 'react-spinners';
-// import * as tfvis from '@tensorflow/tfjs-vis';
+import type {
+  GameStats,
+  ProcessedFeature,
+  RankedTeam,
+  Team,
+} from '@/types/nfl';
 
-// Fetch team IDs
-const fetchAllTeamsAndReturnTeamIds = async () => {
+const fetchAllTeamsAndReturnTeamIds = async (): Promise<number[]> => {
   const response = await fetch(
     `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
   );
-  const json = await response.json();
-  const teamIds = json.map((team) => team.TeamID);
-  return teamIds;
+  const json: Team[] = await response.json();
+  return json.map((team) => team.TeamID);
 };
 
-// Fetch season game data for each team
-const fetchSeasonGameData = async (season, teamIds) => {
+const fetchSeasonGameData = async (
+  season: number,
+  teamIds: number[]
+): Promise<GameStats[][]> => {
   const resultsForEachTeamBySeason = await Promise.all(
     teamIds.map(async (teamId) => {
       const response = await fetch(
         `https://api.sportsdata.io/v3/nfl/scores/json/TeamGameStatsBySeason/${season}/${teamId}/all?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
       );
-      return response.json();
+      return response.json() as Promise<GameStats[]>;
     })
   );
 
   return resultsForEachTeamBySeason;
 };
 
-// Preprocess the data
-const preprocessData = (data) => {
-  const features = data.map((teamGames) =>
+const parseTimeOfPossession = (timeStr: string): number => {
+  const [minutes, seconds] = timeStr.split(':').map(Number);
+  return minutes * 60 + seconds;
+};
+
+const mean = (data: number[]): number =>
+  data.reduce((a, b) => a + b, 0) / data.length;
+
+const std = (data: number[]): number => {
+  const dataMean = mean(data);
+  return Math.sqrt(
+    data.reduce((a, b) => a + (b - dataMean) ** 2, 0) / data.length
+  );
+};
+
+const normalizeFeatures = (features: ProcessedFeature[]): ProcessedFeature[] => {
+  const means: Record<string, number> = {};
+  const stds: Record<string, number> = {};
+
+  const featureNames = Object.keys(features[0]) as (keyof ProcessedFeature)[];
+  featureNames.forEach((name) => {
+    means[name] = mean(features.map((f) => f[name]));
+    stds[name] = std(features.map((f) => f[name]));
+  });
+
+  return features.map((f) => {
+    const normalized = { ...f };
+    featureNames.forEach((name) => {
+      normalized[name] = (f[name] - means[name]) / stds[name];
+    });
+    return normalized;
+  });
+};
+
+const preprocessData = (data: GameStats[][]) => {
+  const features: ProcessedFeature[][] = data.map((teamGames) =>
     teamGames.map((game) => ({
       offensiveYards: game.OffensiveYards,
       passingYards: game.PassingYards,
@@ -41,7 +81,6 @@ const preprocessData = (data) => {
       thirdDownConversions: game.ThirdDownConversions,
       fourthDownConversions: game.FourthDownConversions,
       redZoneConversions: game.RedZoneConversions,
-
       opponentOffensiveYards: game.OpponentOffensiveYards,
       opponentPassingYards: game.OpponentPassingYards,
       opponentRushingYards: game.OpponentRushingYards,
@@ -50,18 +89,15 @@ const preprocessData = (data) => {
       opponentThirdDownConversions: game.OpponentThirdDownConversions,
       opponentFourthDownConversions: game.OpponentFourthDownConversions,
       opponentRedZoneConversions: game.OpponentRedZoneConversions,
-
       kickReturnYards: game.KickReturnYards,
       puntReturnYards: game.PuntReturnYards,
       fieldGoalsMade: game.FieldGoalsMade,
       punts: game.Punts,
-
       turnovers: game.Giveaways,
       takeaways: game.Takeaways,
       penalties: game.Penalties,
       penaltyYards: game.PenaltyYards,
       timeOfPossession: parseTimeOfPossession(game.TimeOfPossession),
-
       score: game.Score,
       opponentScore: game.OpponentScore,
     }))
@@ -79,7 +115,6 @@ const preprocessData = (data) => {
     f.thirdDownConversions,
     f.fourthDownConversions,
     f.redZoneConversions,
-
     f.opponentOffensiveYards,
     f.opponentPassingYards,
     f.opponentRushingYards,
@@ -88,18 +123,15 @@ const preprocessData = (data) => {
     f.opponentThirdDownConversions,
     f.opponentFourthDownConversions,
     f.opponentRedZoneConversions,
-
     f.kickReturnYards,
     f.puntReturnYards,
     f.fieldGoalsMade,
     f.punts,
-
     f.turnovers,
     f.takeaways,
     f.penalties,
     f.penaltyYards,
     f.timeOfPossession,
-
     f.score,
     f.opponentScore,
   ]);
@@ -112,42 +144,6 @@ const preprocessData = (data) => {
   return { inputTensor, outputTensor, features };
 };
 
-// Normalize features
-const normalizeFeatures = (features) => {
-  const means = {};
-  const stds = {};
-
-  const featureNames = Object.keys(features[0]);
-  featureNames.forEach((name) => {
-    means[name] = mean(features.map((f) => f[name]));
-    stds[name] = std(features.map((f) => f[name]));
-  });
-
-  return features.map((f) => {
-    const normalized = {};
-    featureNames.forEach((name) => {
-      normalized[name] = (f[name] - means[name]) / stds[name];
-    });
-    return normalized;
-  });
-};
-
-// Helper functions for mean and standard deviation
-const mean = (data) => data.reduce((a, b) => a + b, 0) / data.length;
-const std = (data) => {
-  const dataMean = mean(data);
-  return Math.sqrt(
-    data.reduce((a, b) => a + (b - dataMean) ** 2, 0) / data.length
-  );
-};
-
-// Convert time of possession from "mm:ss" format to seconds
-const parseTimeOfPossession = (timeStr) => {
-  const [minutes, seconds] = timeStr.split(':').map(Number);
-  return minutes * 60 + seconds;
-};
-
-// Define the model
 const createModel = () => {
   const model = tf.sequential();
 
@@ -156,7 +152,7 @@ const createModel = () => {
   );
   model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
   model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 1 })); // Output layer for ranking score
+  model.add(tf.layers.dense({ units: 1 }));
 
   model.compile({
     optimizer: 'adam',
@@ -167,8 +163,8 @@ const createModel = () => {
   return model;
 };
 
-const PowerRankings = () => {
-  const [rankedTeams, setRankedTeams] = useState([]);
+export default function PowerRankings() {
+  const [rankedTeams, setRankedTeams] = useState<RankedTeam[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleGetStandings = async () => {
@@ -180,23 +176,19 @@ const PowerRankings = () => {
 
       const model = createModel();
 
-      const surface = { name: 'Model Training', tab: 'Training' };
-      const history = await model.fit(inputTensor, outputTensor, {
+      await model.fit(inputTensor, outputTensor, {
         epochs: 50,
         batchSize: 32,
         validationSplit: 0.2,
-        // callbacks: tfvis.show.fitCallbacks(surface, ['loss', 'mae'], {
-        //   height: 200,
-        //   callbacks: ['onEpochEnd'],
-        // }),
       });
 
-      // Predict scores for each game
       const predictions = model.predict(inputTensor);
-      const predictionValues = await predictions.array();
+      const predictionTensor = Array.isArray(predictions)
+        ? predictions[0]
+        : predictions;
+      const predictionValues = (await predictionTensor.array()) as number[][];
 
-      // Aggregate predictions by team
-      const teamScores = {};
+      const teamScores: Record<number, number> = {};
       teamIds.forEach((teamId, index) => {
         const teamGames = features[index];
         const teamPredictionScores = predictionValues.slice(
@@ -208,34 +200,30 @@ const PowerRankings = () => {
           teamGames.length;
       });
 
-      // Fetch team names for better readability
       const response = await fetch(
         `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
       );
-      const teams = await response.json();
-      const teamNames = teams.reduce((acc, team) => {
+      const teams: Team[] = await response.json();
+      const teamNames = teams.reduce<Record<number, string>>((acc, team) => {
         acc[team.TeamID] = team.Name;
         return acc;
       }, {});
 
-      // Rank teams based on scores
-      const rankedTeams = Object.entries(teamScores)
+      const ranked: RankedTeam[] = Object.entries(teamScores)
         .map(([teamId, score]) => ({
           teamId,
-          teamName: teamNames[teamId],
+          teamName: teamNames[Number(teamId)],
           score,
         }))
         .sort((a, b) => b.score - a.score);
 
-      setRankedTeams(rankedTeams);
+      setRankedTeams(ranked);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
-
-  // https://api.sportsdata.io/v3/nfl/scores/json/DepthCharts?key=c1a651416768401d992783c7225dcdbc
 
   return (
     <div className="flex flex-col gap-5 w-full">
@@ -246,7 +234,7 @@ const PowerRankings = () => {
           className="flex gap-2.5 items-center bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md"
         >
           <AutoAwesomeIcon />
-          {'Train Power Rankings Model'}
+          Train Power Rankings Model
         </button>
       </div>
 
@@ -277,6 +265,7 @@ const PowerRankings = () => {
                     src={`/media/teamLogos/${team.teamName.toLowerCase()}.png`}
                     height={40}
                     width={40}
+                    alt={team.teamName}
                   />
                   {team.teamName}
                 </td>
@@ -288,5 +277,4 @@ const PowerRankings = () => {
       )}
     </div>
   );
-};
-export default PowerRankings;
+}

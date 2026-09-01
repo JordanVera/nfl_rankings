@@ -9,29 +9,33 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "npx prisma generate",
-    "model": "node ./src/models/top32TeamsModel.js"
+    "model": "tsx ./src/models/top32TeamsModel.ts"
   },
   "dependencies": {
-    "@emotion/react": "^11.11.4",
-    "@emotion/styled": "^11.11.5",
-    "@mui/icons-material": "^5.15.19",
-    "@mui/material": "^5.15.19",
-    "@prisma/client": "^5.14.0",
-    "@tensorflow/tfjs": "^4.20.0",
-    "@tensorflow/tfjs-node": "^4.19.0",
-    "@tensorflow/tfjs-vis": "^1.5.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.0",
+    "@mui/material": "^6.4.0",
+    "@prisma/client": "^6.4.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "colors": "^1.4.0",
-    "dotenv": "^16.4.5",
-    "next": "14.2.3",
-    "react": "^18",
-    "react-dom": "^18",
-    "react-spinners": "^0.13.8"
+    "dotenv": "^16.4.7",
+    "next": "^16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-spinners": "^0.15.0"
   },
   "devDependencies": {
-    "eslint": "^8",
-    "eslint-config-next": "14.2.3",
-    "postcss": "^8",
-    "prisma": "^5.14.0",
-    "tailwindcss": "^3.4.1"
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "eslint": "^9.20.0",
+    "eslint-config-next": "^16.3.4",
+    "postcss": "^8.5.1",
+    "prisma": "^6.4.0",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }
