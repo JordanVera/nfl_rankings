@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Topbar from '@/components/Topbar';
+import Topbar from '@/components/Navbar';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -14,9 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-black">
+      <body className="mx-auto max-w-5xl bg-black">
         <Topbar />
-        {children}
+        <div className="pt-24">{children}</div>
       </body>
     </html>
   );
