@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs';
-import { fetchSeasonGameData } from '../utils/espnApi';
+import { fetchEspnFpiRankings, fetchSeasonGameData } from '../utils/espnApi';
 import type {
   EspnTeam,
   GameStats,
@@ -221,8 +221,19 @@ export const trainAndRankTeams = async (
 export const computeSeasonRankings = async (
   season: number
 ): Promise<RankingsResponse> => {
-  const { teams, gamesByTeam } = await fetchSeasonGameData(season);
+  const seasonGamesPromise = fetchSeasonGameData(season);
+  const espnRankingsPromise = fetchEspnFpiRankings(season).catch(
+    (error: unknown) => {
+      console.error('Failed to load ESPN FPI rankings', error);
+      return null;
+    }
+  );
+
+  const [{ teams, gamesByTeam }, espnRankings] = await Promise.all([
+    seasonGamesPromise,
+    espnRankingsPromise,
+  ]);
   const rankedTeams = await trainAndRankTeams(teams, gamesByTeam);
 
-  return { season, rankedTeams };
+  return { season, rankedTeams, espnRankings };
 };

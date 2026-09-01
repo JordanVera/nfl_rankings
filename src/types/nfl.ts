@@ -68,6 +68,13 @@ export interface RankedTeam {
   teamName: string;
   score: number;
   logoUrl: string;
+  record?: string;
+}
+
+export interface EspnPowerRankings {
+  source: string;
+  lastUpdated: string | null;
+  rankedTeams: RankedTeam[];
 }
 
 export interface EspnTeam {
@@ -149,4 +156,5 @@ export interface SeasonGameData {
 export interface RankingsResponse {
   season: number;
   rankedTeams: RankedTeam[];
+  espnRankings: EspnPowerRankings | null;
 }

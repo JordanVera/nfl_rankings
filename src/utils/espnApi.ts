@@ -3,14 +3,18 @@ import type {
   EspnBoxscoreTeam,
   EspnCompetitor,
   EspnGameSummary,
+  EspnPowerRankings,
   EspnScoreboardEvent,
   EspnStat,
   EspnTeam,
   GameStats,
+  RankedTeam,
   SeasonGameData,
 } from '../types/nfl';
 
 const ESPN_SITE = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
+const ESPN_FPI =
+  'https://site.web.api.espn.com/apis/fitt/v3/sports/football/nfl/powerindex';
 const REGULAR_SEASON_TYPE = 2;
 const REGULAR_SEASON_WEEKS = 18;
 const SUMMARY_CONCURRENCY = 8;
@@ -384,5 +388,89 @@ export const fetchSeasonGameData = async (
   return {
     teams,
     gamesByTeam: teams.map((team) => gamesByTeamId.get(team.id) ?? []),
+  };
+};
+
+interface EspnFpiCategory {
+  name?: string;
+  names?: string[];
+  totals?: Array<string | null>;
+  values?: Array<number | null>;
+}
+
+interface EspnFpiTeam {
+  team?: {
+    id?: string;
+    name?: string;
+    displayName?: string;
+    logos?: Array<{ href?: string }>;
+  };
+  categories?: EspnFpiCategory[];
+}
+
+interface EspnFpiResponse {
+  lastUpdated?: string;
+  categories?: EspnFpiCategory[];
+  teams?: EspnFpiTeam[];
+}
+
+const fpiIndex = (categories: EspnFpiCategory[] | undefined, name: string) =>
+  categories?.[0]?.names?.indexOf(name) ?? -1;
+
+const fpiValue = (
+  teamCategory: EspnFpiCategory | undefined,
+  index: number,
+): number => {
+  if (index < 0) return 0;
+  const value = teamCategory?.values?.[index];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+};
+
+export const fetchEspnFpiRankings = async (
+  season: number,
+): Promise<EspnPowerRankings> => {
+  const data = await espnFetchWithRetry<EspnFpiResponse>(
+    `${ESPN_FPI}?season=${season}&limit=32`,
+  );
+
+  const rankIndex = fpiIndex(data.categories, 'fpirank');
+  const fpiScoreIndex = fpiIndex(data.categories, 'fpi');
+  const winsIndex = fpiIndex(data.categories, 'numwins');
+  const lossesIndex = fpiIndex(data.categories, 'numlosses');
+  const tiesIndex = fpiIndex(data.categories, 'numties');
+
+  const mapped = (data.teams ?? []).flatMap((entry) => {
+    const team = entry.team;
+    const fpiCategory = entry.categories?.find((cat) => cat.name === 'fpi');
+    if (!team?.id) return [];
+
+    const wins = fpiValue(fpiCategory, winsIndex);
+    const losses = fpiValue(fpiCategory, lossesIndex);
+    const ties = fpiValue(fpiCategory, tiesIndex);
+
+    return [
+      {
+        teamId: team.id,
+        teamName: team.name ?? team.displayName ?? 'Unknown',
+        logoUrl: team.logos?.[0]?.href ?? '',
+        score: fpiValue(fpiCategory, fpiScoreIndex),
+        record: ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`,
+        rank: fpiValue(fpiCategory, rankIndex) || Number.POSITIVE_INFINITY,
+      },
+    ];
+  });
+
+  const rankedTeams: RankedTeam[] = mapped
+    .sort((a, b) => a.rank - b.rank || b.score - a.score)
+    .map(({ rank: _rank, ...team }) => team);
+
+  if (rankedTeams.length === 0) {
+    throw new Error(`No ESPN FPI rankings found for ${season}.`);
+  }
+
+  return {
+    source: 'ESPN FPI',
+    lastUpdated: data.lastUpdated ?? null,
+    rankedTeams,
   };
 };
