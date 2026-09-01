@@ -42,28 +42,25 @@ export default function Topbar() {
     <header className="fixed inset-x-0 top-0 z-50 px-4 pt-3 sm:pt-4">
       <nav
         className={cn(
-          'mx-auto flex items-center justify-between rounded-full border px-3 py-2 transition-all duration-300 sm:px-4',
+          'flex justify-between items-center px-3 py-2 mx-auto rounded-full border transition-all duration-300 sm:px-4',
           scrolled
-            ? 'max-w-5xl bg-black shadow-lg border-white/15 shadow-black/40'
+            ? 'max-w-5xl shadow-lg backdrop-blur-xl border-zinc-800 bg-black/80 border-white/15 shadow-black/40'
             : 'max-w-6xl bg-transparent border-transparent',
         )}
       >
-        <div className="flex items-center gap-1">
-          <Link
-            href="/"
-            className="flex shrink-0 items-center gap-2 pl-1"
-          >
+        <div className="flex gap-1 items-center">
+          <Link href="/" className="flex gap-2 items-center pl-1 shrink-0">
             <Image
               src="/media/logoWhite.svg"
               alt="Football Power Rankings"
               width={36}
               height={36}
-              className="h-9 w-9"
+              className="w-9 h-9"
               priority
             />
           </Link>
 
-          <div className="hidden items-center gap-1 lg:flex">
+          <div className="hidden gap-1 items-center lg:flex">
             {NAV_LINKS.map((link) => {
               const isActive =
                 pathname === link.href ||
@@ -75,7 +72,9 @@ export default function Topbar() {
                   href={link.href}
                   className={cn(
                     'group relative rounded-full px-2.5 py-1.5 text-[11px] font-medium tracking-widest uppercase transition-colors xl:px-3',
-                    isActive ? 'text-primary' : 'text-white/80 hover:text-white',
+                    isActive
+                      ? 'text-primary'
+                      : 'text-white/80 hover:text-white',
                   )}
                 >
                   {link.label}
