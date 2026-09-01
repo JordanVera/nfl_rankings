@@ -1,6 +1,9 @@
-export interface Team {
-  TeamID: number;
-  Name: string;
+export type League = 'nfl' | 'cfb';
+
+export const LEAGUES: League[] = ['nfl', 'cfb'];
+
+export function isLeague(value: string | null): value is League {
+  return value === 'nfl' || value === 'cfb';
 }
 
 export interface GameStats {
@@ -155,6 +158,7 @@ export interface SeasonGameData {
 
 export interface RankingsResponse {
   season: number;
+  league: League;
   rankedTeams: RankedTeam[];
   espnRankings: EspnPowerRankings | null;
 }

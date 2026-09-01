@@ -4,13 +4,15 @@ import { useState } from 'react';
 import Image from 'next/image';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { ScaleLoader } from 'react-spinners';
-import type { RankedTeam, RankingsResponse } from '@/types/nfl';
+import type { League, RankedTeam, RankingsResponse } from '@/types/nfl';
 
 const SEASONS = [2023, 2024, 2025, 2026];
 const DEFAULT_SEASON = 2025;
+const DEFAULT_LEAGUE: League = 'nfl';
+const CFB_PREVIEW_COUNT = 25;
 
 const rankDelta = (modelRank: number, espnRank: number | undefined) => {
-  if (!espnRank) return null;
+  if (!espnRank) return { label: 'NR', className: 'text-gray-500' };
   const delta = espnRank - modelRank;
   if (delta === 0) return { label: '=', className: 'text-gray-400' };
   if (delta > 0) {
@@ -19,7 +21,7 @@ const rankDelta = (modelRank: number, espnRank: number | undefined) => {
   return { label: `${delta}`, className: 'text-red-400' };
 };
 
-function RankingsTable({
+function RankingsList({
   title,
   subtitle,
   teams,
@@ -35,75 +37,74 @@ function RankingsTable({
   showDelta?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 min-w-0">
-      <div>
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
-        ) : null}
+    <div className="flex flex-col gap-3 min-w-0">
+      <div className="flex gap-3 justify-between items-end">
+        <div>
+          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          {subtitle ? (
+            <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
+          ) : null}
+        </div>
+        <p className="text-xs text-gray-500 uppercase tracking-wider shrink-0 pb-0.5">
+          {showDelta ? `vs ESPN · ${scoreLabel}` : scoreLabel}
+        </p>
       </div>
-      <table className="w-full">
-        <thead>
-          <tr className="flex flex-row gap-4 items-center px-2 py-3 w-full text-left bg-gray-800 rounded-t-lg border border-gray-700">
-            <th className="w-10">Rank</th>
-            <th>Team</th>
-            {showDelta ? <th className="w-14 text-right">vs. E</th> : null}
-            <th className="ml-auto">{scoreLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team, index) => {
-            const modelRank = index + 1;
-            const espnRank = espnRankById?.get(team.teamId);
-            const delta = showDelta ? rankDelta(modelRank, espnRank) : null;
+      <ol className="flex flex-col">
+        {teams.map((team, index) => {
+          const modelRank = index + 1;
+          const espnRank = espnRankById?.get(team.teamId);
+          const delta = showDelta ? rankDelta(modelRank, espnRank) : null;
 
-            return (
-              <tr
-                key={team.teamId}
-                className={`${
-                  index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'
-                } ${
-                  index === teams.length - 1 ? 'rounded-b-lg' : ''
-                } flex flex-row gap-4 items-center p-2.5 border border-gray-700`}
-              >
-                <td className="w-10 text-right">{modelRank}</td>
-                <td className="flex flex-row gap-3 items-center min-w-0">
-                  {team.logoUrl ? (
-                    <Image
-                      src={team.logoUrl}
-                      height={40}
-                      width={40}
-                      alt={team.teamName}
-                    />
-                  ) : null}
-                  <span className="truncate">
-                    {team.teamName}
-                    {team.record ? (
-                      <span className="ml-2 text-sm text-gray-400">
-                        {team.record}
-                      </span>
-                    ) : null}
+          return (
+            <li
+              key={team.teamId}
+              className="flex items-center gap-3 py-2.5 border-b border-gray-800 last:border-b-0"
+            >
+              <span className="w-7 text-sm tabular-nums text-right text-gray-400 shrink-0">
+                {modelRank}
+              </span>
+              {team.logoUrl ? (
+                <Image
+                  src={team.logoUrl}
+                  height={32}
+                  width={32}
+                  alt=""
+                  sizes="32px"
+                  className="shrink-0"
+                />
+              ) : (
+                <span className="w-8 shrink-0" aria-hidden />
+              )}
+              <span className="flex-1 min-w-0 truncate">
+                {team.teamName}
+                {team.record ? (
+                  <span className="ml-2 text-sm text-gray-500">
+                    {team.record}
                   </span>
-                </td>
-                {showDelta ? (
-                  <td className={`w-14 text-right ${delta?.className ?? ''}`}>
-                    {delta?.label ?? '—'}
-                  </td>
                 ) : null}
-                <td className="ml-auto tabular-nums">
-                  {team.score.toFixed(2)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              </span>
+              {showDelta ? (
+                <span
+                  className={`w-10 shrink-0 text-right text-sm tabular-nums ${delta?.className ?? ''}`}
+                >
+                  {delta?.label ?? '—'}
+                </span>
+              ) : null}
+              <span className="text-sm tabular-nums text-gray-400 shrink-0">
+                {team.score.toFixed(2)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
 
 export default function PowerRankings() {
   const [season, setSeason] = useState(DEFAULT_SEASON);
+  const [league, setLeague] = useState<League>(DEFAULT_LEAGUE);
+  const [showAll, setShowAll] = useState(false);
   const [result, setResult] = useState<RankingsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +113,9 @@ export default function PowerRankings() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/rankings?season=${season}`);
+      const response = await fetch(
+        `/api/rankings?season=${season}&league=${league}`,
+      );
       const payload = (await response.json()) as
         | RankingsResponse
         | { error?: string };
@@ -125,6 +128,7 @@ export default function PowerRankings() {
       }
 
       setResult(payload);
+      setShowAll(payload.league !== 'cfb');
     } catch (err) {
       setError(
         err instanceof Error
@@ -144,9 +148,33 @@ export default function PowerRankings() {
     ]),
   );
 
+  const isCfb = result?.league === 'cfb';
+  const modelTeams =
+    isCfb && !showAll
+      ? (result?.rankedTeams.slice(0, CFB_PREVIEW_COUNT) ?? [])
+      : (result?.rankedTeams ?? []);
+  const espnScoreLabel =
+    result?.espnRankings?.source === 'ESPN FPI' ? 'FPI' : 'Pts';
+
   return (
     <div className="flex flex-col gap-5 w-full">
       <div className="flex flex-wrap gap-3 justify-center items-center">
+        <label className="text-sm text-white" htmlFor="league">
+          League
+        </label>
+        <select
+          id="league"
+          value={league}
+          onChange={(event) => {
+            setLeague(event.target.value as League);
+            setResult(null);
+          }}
+          disabled={loading}
+          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700"
+        >
+          <option value="nfl">NFL</option>
+          <option value="cfb">College Football</option>
+        </select>
         <label className="text-sm text-white" htmlFor="season">
           Season
         </label>
@@ -177,8 +205,9 @@ export default function PowerRankings() {
         <div className="flex flex-col gap-2 items-center">
           <ScaleLoader color="#36d7b7" />
           <p className="text-sm text-gray-400">
-            Fetching ESPN box scores and training the model. First run can take
-            a minute.
+            {league === 'cfb'
+              ? 'Fetching FBS box scores and training the model. First run can take a couple of minutes.'
+              : 'Fetching ESPN box scores and training the model. First run can take a minute.'}
           </p>
         </div>
       )}
@@ -190,36 +219,51 @@ export default function PowerRankings() {
       )}
 
       {!loading && result && result.rankedTeams.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
-          <RankingsTable
-            title="Our model"
-            subtitle={`${result.season} season box-score model`}
-            teams={result.rankedTeams}
-            scoreLabel="Score"
-            espnRankById={espnRankById}
-            showDelta={Boolean(result.espnRankings)}
-          />
-          {result.espnRankings ? (
-            <RankingsTable
-              title="ESPN FPI"
-              subtitle={`Football Power Index for ${result.season}${
-                result.espnRankings.lastUpdated
-                  ? ` · updated ${new Date(
-                      result.espnRankings.lastUpdated,
-                    ).toLocaleDateString()}`
-                  : ''
-              }`}
-              teams={result.espnRankings.rankedTeams}
-              scoreLabel="FPI"
+        <>
+          {isCfb && result.rankedTeams.length > CFB_PREVIEW_COUNT ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAll((value) => !value)}
+                className="text-sm text-cyan-400 hover:underline"
+              >
+                {showAll
+                  ? 'Show top 25'
+                  : `Show all ${result.rankedTeams.length} FBS teams`}
+              </button>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
+            <RankingsList
+              title="Our model"
+              subtitle={`${result.season} ${
+                result.league === 'cfb' ? 'FBS' : 'NFL'
+              } box-score model`}
+              teams={modelTeams}
+              scoreLabel="Score"
+              espnRankById={espnRankById}
+              showDelta={Boolean(result.espnRankings)}
             />
-          ) : (
-            <p className="text-sm text-gray-400">
-              ESPN FPI rankings were not available for this season. NFL does not
-              publish AP-style polls; FPI is ESPN&apos;s published power
-              ranking.
-            </p>
-          )}
-        </div>
+            {result.espnRankings ? (
+              <RankingsList
+                title={result.espnRankings.source}
+                subtitle={`${result.season}${
+                  result.espnRankings.lastUpdated
+                    ? ` · updated ${new Date(
+                        result.espnRankings.lastUpdated,
+                      ).toLocaleDateString()}`
+                    : ''
+                }`}
+                teams={result.espnRankings.rankedTeams}
+                scoreLabel={espnScoreLabel}
+              />
+            ) : (
+              <p className="text-sm text-gray-400">
+                ESPN rankings were not available for this season.
+              </p>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

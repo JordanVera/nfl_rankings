@@ -3,8 +3,8 @@ import Topbar from '@/components/Topbar';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'NFL Power Rankings',
-  description: 'ML-powered NFL team power rankings',
+  title: 'Football Power Rankings',
+  description: 'ML-powered NFL and college football power rankings',
 };
 
 export default function RootLayout({

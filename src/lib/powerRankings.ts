@@ -1,8 +1,13 @@
 import * as tf from '@tensorflow/tfjs';
-import { fetchEspnFpiRankings, fetchSeasonGameData } from '../utils/espnApi';
+import {
+  fetchLeagueTeams,
+  fetchOfficialEspnRankings,
+  fetchSeasonGameData,
+} from '../utils/espnApi';
 import type {
   EspnTeam,
   GameStats,
+  League,
   ProcessedFeature,
   RankedTeam,
   RankingsResponse,
@@ -219,21 +224,25 @@ export const trainAndRankTeams = async (
 };
 
 export const computeSeasonRankings = async (
-  season: number
+  season: number,
+  league: League = 'nfl'
 ): Promise<RankingsResponse> => {
-  const seasonGamesPromise = fetchSeasonGameData(season);
-  const espnRankingsPromise = fetchEspnFpiRankings(season).catch(
-    (error: unknown) => {
-      console.error('Failed to load ESPN FPI rankings', error);
-      return null;
-    }
-  );
+  const teams = await fetchLeagueTeams(league, season);
+  const seasonGamesPromise = fetchSeasonGameData(league, season, teams);
+  const espnRankingsPromise = fetchOfficialEspnRankings(
+    league,
+    season,
+    teams
+  ).catch((error: unknown) => {
+    console.error('Failed to load ESPN rankings', error);
+    return null;
+  });
 
-  const [{ teams, gamesByTeam }, espnRankings] = await Promise.all([
+  const [{ gamesByTeam }, espnRankings] = await Promise.all([
     seasonGamesPromise,
     espnRankingsPromise,
   ]);
   const rankedTeams = await trainAndRankTeams(teams, gamesByTeam);
 
-  return { season, rankedTeams, espnRankings };
+  return { season, league, rankedTeams, espnRankings };
 };
