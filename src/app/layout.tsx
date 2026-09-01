@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Topbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -18,9 +19,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="mx-auto max-w-[1200px] bg-black">
+      <body className="mx-auto flex min-h-screen max-w-[1200px] flex-col bg-black">
         <Topbar />
-        <div className="pt-24">{children}</div>
+        <div className="flex-1 pt-24">{children}</div>
+        <Footer />
       </body>
     </html>
   );
