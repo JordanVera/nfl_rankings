@@ -10,7 +10,7 @@ const PIPELINE = [
   {
     step: '01',
     label: 'Roster the league',
-    detail: '32 NFL clubs, or FBS via teams?groups=80',
+    detail: '32 NFL clubs, or FBS via ESPN group 80',
   },
   {
     step: '02',
@@ -238,9 +238,7 @@ export default function AboutPage() {
                       Team universe
                     </td>
                     <td className="px-3 py-2">site.api …/nfl/teams?limit=32</td>
-                    <td className="px-3 py-2">
-                      …/college-football/teams?groups=80
-                    </td>
+                    <td className="px-3 py-2">core …/groups/80/teams (FBS)</td>
                   </tr>
                   <tr className="border-t border-white/10">
                     <td className="px-3 py-2 font-sans text-white">
@@ -278,12 +276,15 @@ export default function AboutPage() {
               NFL teams are the 32 clubs on the league teams endpoint, sorted by
               display name. College football is not “every NCAA team”: the
               roster is ESPN group{' '}
-              <code className="font-mono text-primary-300">80</code> (FBS, limit
-              200), and scoreboards are pinned to the same group. FCS clubs such
-              as North Dakota State never enter the ranking universe. If an FBS
-              club plays an FCS opponent, we still ingest the FBS side of that
-              box score; the FCS opponent is not on the roster, so its predicted
-              margin is later treated as a cupcake.
+              <code className="font-mono text-primary-300">80</code> (FBS),
+              loaded from the core API season group-teams collection.
+              Scoreboards are pinned to the same group. The public{' '}
+              <code className="font-mono text-sm">/teams?groups=80</code> site
+              list ignores the filter, so we do not use it. Division III clubs
+              never enter the ranking universe. If an FBS club plays an opponent
+              that is not in group 80, we still ingest the FBS side of that box
+              score; the missing opponent is later treated as a cupcake in the
+              SRS pass.
             </p>
             <p className="mb-3 text-white/85">
               Season slicing is strict. We only keep{' '}

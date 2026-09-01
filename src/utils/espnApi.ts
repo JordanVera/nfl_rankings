@@ -274,7 +274,7 @@ const boxscoreSide = (
     TimeOfPossession: possessionDisplay(ownStats.possessionTime),
     Score: ownScore,
     OpponentScore: opponentScore,
-    opponentTeamId: opponent.team?.id ?? '',
+    opponentTeamId: opponent.team?.id != null ? String(opponent.team.id) : '',
   };
 };
 
@@ -424,50 +424,99 @@ export const fetchEspnFpiRankings = async (
   };
 };
 
-const teamsListUrl = (league: League) => {
-  const config = LEAGUE_CONFIG[league];
-  const params = new URLSearchParams({
-    limit: String(config.teamsLimit),
-  });
-  if (config.groups) {
-    params.set('groups', String(config.groups));
-  }
-  return `${config.siteBase}/teams?${params.toString()}`;
+const teamIdFromRef = (ref: string | undefined): string | null => {
+  if (!ref) return null;
+  const match = ref.match(/\/teams\/(\d+)/);
+  return match?.[1] ?? null;
+};
+
+interface EspnSiteTeamsResponse {
+  sports?: Array<{
+    leagues?: Array<{
+      teams?: Array<{
+        team?: {
+          id?: string | number;
+          name?: string;
+          displayName?: string;
+          abbreviation?: string;
+          logos?: Array<{ href?: string }>;
+        };
+      }>;
+    }>;
+  }>;
+}
+
+const mapSiteTeam = (
+  league: League,
+  team:
+    | {
+        id?: string | number;
+        name?: string;
+        displayName?: string;
+        abbreviation?: string;
+        logos?: Array<{ href?: string }>;
+      }
+    | undefined,
+): EspnTeam | null => {
+  if (team?.id == null) return null;
+  return {
+    id: String(team.id),
+    name: teamDisplayName(league, team),
+    displayName: team.displayName ?? team.name ?? 'Unknown',
+    abbreviation: team.abbreviation ?? '',
+    logoUrl: team.logos?.[0]?.href ?? '',
+  };
+};
+
+const fetchCfbFbsTeams = async (season: number): Promise<EspnTeam[]> => {
+  const group = LEAGUE_CONFIG.cfb.groups;
+  const collection = await espnFetchWithRetry<{
+    items?: Array<{ $ref?: string }>;
+  }>(
+    `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/types/${REGULAR_SEASON_TYPE}/groups/${group}/teams?limit=${LEAGUE_CONFIG.cfb.teamsLimit}`,
+  );
+
+  const ids = [
+    ...new Set(
+      (collection.items ?? [])
+        .map((item) => teamIdFromRef(item.$ref))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const details = await mapPool(ids, SUMMARY_CONCURRENCY, (id) =>
+    espnFetchWithRetry<{
+      id?: string;
+      name?: string;
+      displayName?: string;
+      abbreviation?: string;
+      logos?: Array<{ href?: string }>;
+    }>(
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/teams/${id}`,
+    ),
+  );
+
+  return details
+    .map((team) => mapSiteTeam('cfb', team))
+    .filter((team): team is EspnTeam => team !== null)
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
 export const fetchLeagueTeams = async (
   league: League,
-  _season: number,
+  season: number,
 ): Promise<EspnTeam[]> => {
-  const data = await espnFetchWithRetry<{
-    sports?: Array<{
-      leagues?: Array<{
-        teams?: Array<{
-          team?: {
-            id?: string;
-            name?: string;
-            displayName?: string;
-            abbreviation?: string;
-            logos?: Array<{ href?: string }>;
-          };
-        }>;
-      }>;
-    }>;
-  }>(teamsListUrl(league));
+  if (league === 'cfb') {
+    return fetchCfbFbsTeams(season);
+  }
+
+  const data = await espnFetchWithRetry<EspnSiteTeamsResponse>(
+    `${LEAGUE_CONFIG.nfl.siteBase}/teams?limit=${LEAGUE_CONFIG.nfl.teamsLimit}`,
+  );
 
   const teams =
     data.sports?.[0]?.leagues?.[0]?.teams
-      ?.map((entry) => {
-        const team = entry.team;
-        if (!team?.id) return null;
-        return {
-          id: team.id,
-          name: teamDisplayName(league, team),
-          displayName: team.displayName ?? team.name ?? 'Unknown',
-          abbreviation: team.abbreviation ?? '',
-          logoUrl: team.logos?.[0]?.href ?? '',
-        } satisfies EspnTeam;
-      })
+      ?.map((entry) => mapSiteTeam(league, entry.team))
       .filter((team): team is EspnTeam => team !== null) ?? [];
 
   return teams.sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -594,12 +643,6 @@ export const fetchSeasonGameData = async (
     teams: resolvedTeams,
     gamesByTeam: resolvedTeams.map((team) => gamesByTeamId.get(team.id) ?? []),
   };
-};
-
-const teamIdFromRef = (ref: string | undefined): string | null => {
-  if (!ref) return null;
-  const match = ref.match(/\/teams\/(\d+)/);
-  return match?.[1] ?? null;
 };
 
 interface EspnCoreRanking {
