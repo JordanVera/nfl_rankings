@@ -2,9 +2,14 @@
 
 import Link from 'next/link';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import type { League } from '@/types/nfl';
 
-export const SEASONS = [2023, 2024, 2025, 2026] as const;
+export const SEASONS = [
+  2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012,
+  2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025,
+  2026,
+] as const;
 export const DEFAULT_SEASON = 2025;
 export const DEFAULT_LEAGUE: League = 'nfl';
 
@@ -167,49 +172,50 @@ export default function RankingConsole({
           </fieldset>
 
           <div className="flex flex-col gap-5 min-w-0">
-            <fieldset className="p-0 m-0 border-0" role="radiogroup">
-              <legend className="mb-2 text-[11px] font-medium tracking-[0.28em] uppercase text-white/45">
-                Season
-              </legend>
-              <div className="grid grid-cols-4 gap-2">
-                {SEASONS.map((year) => {
-                  const isSelected = year === season;
-                  const isCurrent = year === CURRENT_SEASON;
-                  return (
-                    <button
-                      key={year}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      disabled={loading}
-                      onClick={() => onSeasonChange(year)}
-                      className={cn(
-                        'flex min-h-[4.25rem] flex-col items-center justify-center rounded-md border px-1 py-2.5 transition duration-200 ease-out',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-                        'disabled:cursor-not-allowed disabled:opacity-60',
-                        isSelected
-                          ? 'text-white border-primary-400/70 bg-primary-500/15'
-                          : 'border-white/10 bg-black/30 text-white/70 hover:border-white/25 hover:text-white',
-                      )}
-                    >
-                      <span className="font-mono text-lg tabular-nums sm:text-xl">
-                        {year}
-                      </span>
-                      {isCurrent ? (
-                        <span
-                          className={cn(
-                            'mt-1 text-[9px] tracking-[0.18em] uppercase',
-                            isSelected ? 'text-primary-300' : 'text-white/35',
-                          )}
-                        >
-                          Live
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+            <div>
+              <div className="flex gap-3 justify-between items-center mb-2">
+                <label
+                  htmlFor="season-select"
+                  className="text-[11px] font-medium tracking-[0.28em] uppercase text-white/45"
+                >
+                  Season
+                </label>
+                {season === CURRENT_SEASON ? (
+                  <span className="text-[9px] tracking-[0.18em] uppercase text-primary-300">
+                    Live
+                  </span>
+                ) : null}
               </div>
-            </fieldset>
+              <div className="relative">
+                <select
+                  id="season-select"
+                  name="season"
+                  value={season}
+                  disabled={loading}
+                  onChange={(event) => onSeasonChange(Number(event.target.value))}
+                  className={cn(
+                    'w-full cursor-pointer appearance-none rounded-md border bg-black/30 py-3 pl-3.5 pr-12',
+                    'font-mono text-xl tabular-nums text-white scheme-dark',
+                    'transition duration-200 ease-out',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+                    'disabled:cursor-not-allowed disabled:opacity-60',
+                    'border-white/10 hover:border-white/25 hover:bg-white/[0.04]',
+                  )}
+                >
+                  {[...SEASONS].reverse().map((year) => (
+                    <option key={year} value={year}>
+                      {year === CURRENT_SEASON ? `${year} · Live` : year}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className="flex absolute inset-y-0 right-0 items-center pr-3 pointer-events-none text-primary-300"
+                  aria-hidden
+                >
+                  <KeyboardArrowDownIcon fontSize="small" />
+                </span>
+              </div>
+            </div>
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 px-3.5 py-3 font-mono text-[11px] rounded-md border border-white/10 bg-black/50 sm:text-xs">
               <div className="flex flex-col gap-0.5">

@@ -700,7 +700,7 @@ rating = w · thisSeason + (1 − w) · lastSeason`}
               <code className="font-mono text-sm">
                 GET /api/rankings?season=YYYY&amp;league=nfl|cfb
               </code>
-              . Seasons are clamped to 2023–2026. The handler is a Node runtime
+              . Seasons are clamped to 2000–2026. The handler is a Node runtime
               (not Edge) with{' '}
               <code className="font-mono text-sm">maxDuration = 300</code>,
               wrapped in{' '}

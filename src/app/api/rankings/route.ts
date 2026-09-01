@@ -5,7 +5,7 @@ import { isLeague, type League } from '@/types/nfl';
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 
-const MIN_SEASON = 2023;
+const MIN_SEASON = 2000;
 const MAX_SEASON = 2026;
 const DEFAULT_SEASON = 2025;
 const DEFAULT_LEAGUE: League = 'nfl';
@@ -14,18 +14,14 @@ const getCachedSeasonRankings = unstable_cache(
   async (season: number, league: League) =>
     computeSeasonRankings(season, league),
   ['power-rankings-v6'],
-  { revalidate: 60 * 60 * 24 }
+  { revalidate: 60 * 60 * 24 },
 );
 
 const parseSeason = (value: string | null): number => {
   const season = Number(value ?? DEFAULT_SEASON);
-  if (
-    !Number.isInteger(season) ||
-    season < MIN_SEASON ||
-    season > MAX_SEASON
-  ) {
+  if (!Number.isInteger(season) || season < MIN_SEASON || season > MAX_SEASON) {
     throw new Error(
-      `Season must be an integer between ${MIN_SEASON} and ${MAX_SEASON}.`
+      `Season must be an integer between ${MIN_SEASON} and ${MAX_SEASON}.`,
     );
   }
   return season;
