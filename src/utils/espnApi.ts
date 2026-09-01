@@ -14,7 +14,9 @@ import type {
 } from '../types/nfl';
 
 const REVALIDATE_SECONDS = 60 * 60 * 24;
+const PRESEASON_TYPE = 1;
 const REGULAR_SEASON_TYPE = 2;
+const AP_RANKING_ID = 1;
 const SUMMARY_CONCURRENCY = 10;
 
 const LEAGUE_CONFIG = {
@@ -53,6 +55,15 @@ async function espnFetch<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function espnFetchOrNull<T>(url: string): Promise<T | null> {
+  const response = await fetch(url, espnFetchInit);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`ESPN request failed (${response.status}) for ${url}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 async function espnFetchWithRetry<T>(url: string, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -62,7 +73,7 @@ async function espnFetchWithRetry<T>(url: string, attempts = 3): Promise<T> {
       lastError = error;
       if (attempt < attempts - 1) {
         await new Promise((resolve) =>
-          setTimeout(resolve, 400 * (attempt + 1))
+          setTimeout(resolve, 400 * (attempt + 1)),
         );
       }
     }
@@ -73,7 +84,7 @@ async function espnFetchWithRetry<T>(url: string, attempts = 3): Promise<T> {
 async function mapPool<T, R>(
   items: T[],
   limit: number,
-  fn: (item: T) => Promise<R>
+  fn: (item: T) => Promise<R>,
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
@@ -86,7 +97,7 @@ async function mapPool<T, R>(
         nextIndex += 1;
         results[index] = await fn(items[index]);
       }
-    }
+    },
   );
 
   await Promise.all(workers);
@@ -94,7 +105,7 @@ async function mapPool<T, R>(
 }
 
 const statLookup = (
-  statistics: EspnStat[] | undefined
+  statistics: EspnStat[] | undefined,
 ): Record<string, EspnStat> => {
   const lookup: Record<string, EspnStat> = {};
   for (const stat of statistics ?? []) {
@@ -121,7 +132,7 @@ const parseMade = (displayValue: string | undefined): number => {
 };
 
 const parseCompletionPercentage = (
-  displayValue: string | undefined
+  displayValue: string | undefined,
 ): number => {
   if (!displayValue || displayValue === '-') return 0;
   const [completed, attempts] = displayValue.split(/[-/]/).map(Number);
@@ -130,7 +141,7 @@ const parseCompletionPercentage = (
 };
 
 const parsePenalties = (
-  displayValue: string | undefined
+  displayValue: string | undefined,
 ): { count: number; yards: number } => {
   if (!displayValue || displayValue === '-') {
     return { count: 0, yards: 0 };
@@ -165,11 +176,11 @@ const sumPlayerStat = (
   players: EspnBoxscorePlayers[] | undefined,
   teamId: string,
   groupName: string,
-  key: string
+  key: string,
 ): number => {
   const teamPlayers = players?.find((entry) => entry.team?.id === teamId);
   const group = teamPlayers?.statistics?.find(
-    (group) => group.name === groupName
+    (group) => group.name === groupName,
   );
   if (!group?.keys || !group.athletes) return 0;
 
@@ -189,7 +200,7 @@ const sumPlayerStat = (
 const specialTeamsFor = (
   players: EspnBoxscorePlayers[] | undefined,
   teamId: string,
-  lookup: Record<string, EspnStat>
+  lookup: Record<string, EspnStat>,
 ) => ({
   kickReturnYards:
     parseNumeric(lookup.kickReturnYards) ||
@@ -203,7 +214,7 @@ const specialTeamsFor = (
       players,
       teamId,
       'kicking',
-      'fieldGoalsMade/fieldGoalAttempts'
+      'fieldGoalsMade/fieldGoalAttempts',
     ),
   punts:
     parseNumeric(lookup.punts) ||
@@ -215,14 +226,14 @@ const boxscoreSide = (
   opponent: EspnBoxscoreTeam,
   ownScore: number,
   opponentScore: number,
-  players: EspnBoxscorePlayers[] | undefined
+  players: EspnBoxscorePlayers[] | undefined,
 ): GameStats => {
   const ownId = own.team?.id ?? '';
   const ownStats = statLookup(own.statistics);
   const oppStats = statLookup(opponent.statistics);
   const ownSpecial = specialTeamsFor(players, ownId, ownStats);
   const ownPenalties = parsePenalties(
-    ownStats.totalPenaltiesYards?.displayValue
+    ownStats.totalPenaltiesYards?.displayValue,
   );
 
   return {
@@ -230,7 +241,7 @@ const boxscoreSide = (
     PassingYards: parseNumeric(ownStats.netPassingYards),
     RushingYards: parseNumeric(ownStats.rushingYards),
     CompletionPercentage: parseCompletionPercentage(
-      ownStats.completionAttempts?.displayValue
+      ownStats.completionAttempts?.displayValue,
     ),
     FirstDowns: parseNumeric(ownStats.firstDowns),
     ThirdDownConversions: parseMade(ownStats.thirdDownEff?.displayValue),
@@ -240,14 +251,18 @@ const boxscoreSide = (
     OpponentPassingYards: parseNumeric(oppStats.netPassingYards),
     OpponentRushingYards: parseNumeric(oppStats.rushingYards),
     OpponentCompletionPercentage: parseCompletionPercentage(
-      oppStats.completionAttempts?.displayValue
+      oppStats.completionAttempts?.displayValue,
     ),
     OpponentFirstDowns: parseNumeric(oppStats.firstDowns),
-    OpponentThirdDownConversions: parseMade(oppStats.thirdDownEff?.displayValue),
-    OpponentFourthDownConversions: parseMade(
-      oppStats.fourthDownEff?.displayValue
+    OpponentThirdDownConversions: parseMade(
+      oppStats.thirdDownEff?.displayValue,
     ),
-    OpponentRedZoneConversions: parseMade(oppStats.redZoneAttempts?.displayValue),
+    OpponentFourthDownConversions: parseMade(
+      oppStats.fourthDownEff?.displayValue,
+    ),
+    OpponentRedZoneConversions: parseMade(
+      oppStats.redZoneAttempts?.displayValue,
+    ),
     KickReturnYards: ownSpecial.kickReturnYards,
     PuntReturnYards: ownSpecial.puntReturnYards,
     FieldGoalsMade: ownSpecial.fieldGoalsMade,
@@ -263,7 +278,7 @@ const boxscoreSide = (
 };
 
 const mapSummaryToTeamGames = (
-  summary: EspnGameSummary
+  summary: EspnGameSummary,
 ): Array<{ teamId: string; stats: GameStats }> => {
   const competition = summary.header?.competitions?.[0];
   const competitors = competition?.competitors ?? [];
@@ -277,7 +292,7 @@ const mapSummaryToTeamGames = (
     competitors.map((competitor) => [
       competitor.id ?? competitor.team?.id ?? '',
       competitorScore(competitor),
-    ])
+    ]),
   );
 
   const [teamA, teamB] = boxTeams;
@@ -304,7 +319,7 @@ const teamDisplayName = (
   team: {
     name?: string;
     displayName?: string;
-  }
+  },
 ): string => {
   if (LEAGUE_CONFIG[league].displayFullName) {
     return team.displayName ?? team.name ?? 'Unknown';
@@ -340,7 +355,7 @@ const fpiIndex = (categories: EspnFpiCategory[] | undefined, name: string) =>
 
 const fpiValue = (
   teamCategory: EspnFpiCategory | undefined,
-  index: number
+  index: number,
 ): number => {
   if (index < 0) return 0;
   const value = teamCategory?.values?.[index];
@@ -361,10 +376,10 @@ const mapFpiTeam = (league: League, entry: EspnFpiTeam): EspnTeam | null => {
 
 export const fetchEspnFpiRankings = async (
   league: League,
-  season: number
+  season: number,
 ): Promise<EspnPowerRankings> => {
   const data = await espnFetchWithRetry<EspnFpiResponse>(
-    `${LEAGUE_CONFIG[league].fpi}?season=${season}&limit=200`
+    `${LEAGUE_CONFIG[league].fpi}?season=${season}&limit=200`,
   );
 
   const rankIndex = fpiIndex(data.categories, 'fpirank');
@@ -388,9 +403,7 @@ export const fetchEspnFpiRankings = async (
         logoUrl: team.logoUrl,
         score: fpiValue(fpiCategory, fpiScoreIndex),
         record: ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`,
-        rank:
-          fpiValue(fpiCategory, rankIndex) ||
-          Number.POSITIVE_INFINITY,
+        rank: fpiValue(fpiCategory, rankIndex) || Number.POSITIVE_INFINITY,
       },
     ];
   });
@@ -412,11 +425,11 @@ export const fetchEspnFpiRankings = async (
 
 export const fetchLeagueTeams = async (
   league: League,
-  season: number
+  season: number,
 ): Promise<EspnTeam[]> => {
   if (league === 'cfb') {
     const data = await espnFetchWithRetry<EspnFpiResponse>(
-      `${LEAGUE_CONFIG.cfb.fpi}?season=${season}&limit=200`
+      `${LEAGUE_CONFIG.cfb.fpi}?season=${season}&limit=200`,
     );
     const teams =
       data.teams
@@ -461,7 +474,7 @@ export const fetchLeagueTeams = async (
 
 const isCompletedRegularSeasonGame = (
   event: EspnScoreboardEvent,
-  season: number
+  season: number,
 ): event is EspnScoreboardEvent & { id: string } =>
   Boolean(event.id) &&
   (event.season?.year === season || event.season?.year === undefined) &&
@@ -485,7 +498,7 @@ const scoreboardUrl = (league: League, season: number, week: number) => {
 
 const fetchRegularSeasonWeekNumbers = async (
   league: League,
-  season: number
+  season: number,
 ): Promise<number[]> => {
   const data = await espnFetchWithRetry<{
     leagues?: Array<{
@@ -497,7 +510,7 @@ const fetchRegularSeasonWeekNumbers = async (
   }>(scoreboardUrl(league, season, 1));
 
   const regularSeason = data.leagues?.[0]?.calendar?.find(
-    (entry) => entry.value === String(REGULAR_SEASON_TYPE)
+    (entry) => entry.value === String(REGULAR_SEASON_TYPE),
   );
   const weeks = (regularSeason?.entries ?? [])
     .map((entry) => Number(entry.value))
@@ -509,13 +522,13 @@ const fetchRegularSeasonWeekNumbers = async (
 
   return Array.from(
     { length: LEAGUE_CONFIG[league].defaultWeeks },
-    (_, index) => index + 1
+    (_, index) => index + 1,
   );
 };
 
 export const fetchSeasonEventIds = async (
   league: League,
-  season: number
+  season: number,
 ): Promise<string[]> => {
   const weeks = await fetchRegularSeasonWeekNumbers(league, season);
   const weekResults = await Promise.all(
@@ -523,8 +536,8 @@ export const fetchSeasonEventIds = async (
       espnFetchWithRetry<{
         events?: EspnScoreboardEvent[];
         season?: { year?: number; type?: number };
-      }>(scoreboardUrl(league, season, week))
-    )
+      }>(scoreboardUrl(league, season, week)),
+    ),
   );
 
   const ids = new Set<string>();
@@ -545,7 +558,7 @@ export const fetchSeasonEventIds = async (
 export const fetchSeasonGameData = async (
   league: League,
   season: number,
-  teams?: EspnTeam[]
+  teams?: EspnTeam[],
 ): Promise<SeasonGameData> => {
   const [resolvedTeams, eventIds] = await Promise.all([
     teams ? Promise.resolve(teams) : fetchLeagueTeams(league, season),
@@ -554,19 +567,19 @@ export const fetchSeasonGameData = async (
 
   if (eventIds.length === 0) {
     throw new Error(
-      `No completed regular-season games found for ${league} ${season}.`
+      `No completed regular-season games found for ${league} ${season}.`,
     );
   }
 
   const teamIds = new Set(resolvedTeams.map((team) => team.id));
   const gamesByTeamId = new Map<string, GameStats[]>(
-    resolvedTeams.map((team) => [team.id, []])
+    resolvedTeams.map((team) => [team.id, []]),
   );
 
   const summaries = await mapPool(eventIds, SUMMARY_CONCURRENCY, (eventId) =>
     espnFetchWithRetry<EspnGameSummary>(
-      `${LEAGUE_CONFIG[league].siteBase}/summary?event=${eventId}`
-    )
+      `${LEAGUE_CONFIG[league].siteBase}/summary?event=${eventId}`,
+    ),
   );
 
   for (const summary of summaries) {
@@ -594,63 +607,130 @@ interface EspnCoreRanking {
   ranks?: Array<{
     current?: number;
     points?: number;
+    lastUpdated?: string;
     record?: { summary?: string };
-    team?: { $ref?: string; id?: string };
+    recordSummary?: string;
+    team?: { $ref?: string; id?: string | number };
+  }>;
+}
+
+interface EspnSiteRankings {
+  requestedSeason?: { year?: number };
+  latestSeason?: { year?: number };
+  rankings?: Array<{
+    id?: string | number;
+    name?: string;
+    lastUpdated?: string;
+    ranks?: EspnCoreRanking['ranks'];
   }>;
 }
 
 const ncaaLogo = (teamId: string) =>
   `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamId}.png`;
 
+const coreApRankingsUrl = (season: number, seasonType: number, week: number) =>
+  `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/types/${seasonType}/weeks/${week}/rankings/${AP_RANKING_ID}`;
+
+const mapApRanks = (
+  ranks: EspnCoreRanking['ranks'],
+  teamById: Map<string, EspnTeam>,
+): RankedTeam[] =>
+  (ranks ?? []).flatMap((rank) => {
+    const teamId =
+      (rank.team?.id != null ? String(rank.team.id) : null) ??
+      teamIdFromRef(rank.team?.$ref) ??
+      '';
+    if (!teamId) return [];
+    const team = teamById.get(teamId);
+    return [
+      {
+        teamId,
+        teamName: team?.name ?? team?.displayName ?? `Team ${teamId}`,
+        logoUrl: team?.logoUrl || ncaaLogo(teamId),
+        score: typeof rank.points === 'number' ? rank.points : 0,
+        record: rank.record?.summary ?? rank.recordSummary,
+      },
+    ];
+  });
+
+const apRankingsFromDocument = (
+  data: Pick<EspnCoreRanking, 'name' | 'lastUpdated' | 'ranks'>,
+  teamById: Map<string, EspnTeam>,
+): EspnPowerRankings | null => {
+  const rankedTeams = mapApRanks(data.ranks, teamById);
+  if (rankedTeams.length === 0) return null;
+  return {
+    source: data.name ?? 'AP Top 25',
+    lastUpdated: data.lastUpdated ?? data.ranks?.[0]?.lastUpdated ?? null,
+    rankedTeams,
+  };
+};
+
+const fetchCoreApForWeek = async (
+  season: number,
+  seasonType: number,
+  week: number,
+  teamById: Map<string, EspnTeam>,
+): Promise<EspnPowerRankings | null> => {
+  const data = await espnFetchOrNull<EspnCoreRanking>(
+    coreApRankingsUrl(season, seasonType, week),
+  );
+  if (!data) return null;
+  return apRankingsFromDocument(data, teamById);
+};
+
 export const fetchEspnApRankings = async (
   season: number,
-  teams: EspnTeam[]
+  teams: EspnTeam[],
 ): Promise<EspnPowerRankings> => {
-  const weeks = await fetchRegularSeasonWeekNumbers('cfb', season);
   const teamById = new Map(teams.map((team) => [team.id, team]));
-  let lastError: unknown;
 
-  for (const week of [...weeks].reverse()) {
-    try {
-      const data = await espnFetchWithRetry<EspnCoreRanking>(
-        `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/types/${REGULAR_SEASON_TYPE}/weeks/${week}/rankings/1`
-      );
-      const rankedTeams: RankedTeam[] = (data.ranks ?? []).flatMap((rank) => {
-        const teamId = rank.team?.id ?? teamIdFromRef(rank.team?.$ref) ?? '';
-        if (!teamId) return [];
-        const team = teamById.get(teamId);
-        return [
-          {
-            teamId,
-            teamName: team?.name ?? team?.displayName ?? `Team ${teamId}`,
-            logoUrl: team?.logoUrl || ncaaLogo(teamId),
-            score: typeof rank.points === 'number' ? rank.points : 0,
-            record: rank.record?.summary,
-          },
-        ];
-      });
-
-      if (rankedTeams.length > 0) {
-        return {
-          source: data.name ?? 'AP Top 25',
-          lastUpdated: data.lastUpdated ?? null,
-          rankedTeams,
-        };
-      }
-    } catch (error) {
-      lastError = error;
+  // site.web.api always serves the live poll (preseason or in-season).
+  // Use it only when it matches the requested year so historical seasons
+  // still come from the week-by-week core API.
+  try {
+    const site = await espnFetch<EspnSiteRankings>(
+      `${LEAGUE_CONFIG.cfb.siteBase}/rankings`,
+    );
+    const liveYear =
+      site.requestedSeason?.year ?? site.latestSeason?.year ?? null;
+    const apPoll = (site.rankings ?? []).find(
+      (poll) => String(poll.id) === String(AP_RANKING_ID),
+    );
+    if (liveYear === season && apPoll) {
+      const live = apRankingsFromDocument(apPoll, teamById);
+      if (live) return live;
     }
+  } catch {
+    // Fall through to the core API walk.
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`No AP Top 25 rankings found for ${season}.`);
+  const weeks = await fetchRegularSeasonWeekNumbers('cfb', season);
+  for (const week of [...weeks].reverse()) {
+    const regularSeason = await fetchCoreApForWeek(
+      season,
+      REGULAR_SEASON_TYPE,
+      week,
+      teamById,
+    );
+    if (regularSeason) return regularSeason;
+  }
+
+  const preseason = await fetchCoreApForWeek(
+    season,
+    PRESEASON_TYPE,
+    1,
+    teamById,
+  );
+  if (preseason) return preseason;
+
+  throw new Error(`No AP Top 25 rankings found for ${season}.`);
 };
 
 export const fetchOfficialEspnRankings = async (
   league: League,
   season: number,
-  teams: EspnTeam[]
+  teams: EspnTeam[],
 ): Promise<EspnPowerRankings> => {
   if (league === 'cfb') {
     return fetchEspnApRankings(season, teams);

@@ -268,7 +268,7 @@ export default function AboutPage() {
                       ESPN FPI (fpi, fpirank, W-L-T)
                     </td>
                     <td className="px-3 py-2">
-                      core API rankings/1 (AP Top 25), latest week with data
+                      AP Top 25 (live site poll, else latest week / preseason)
                     </td>
                   </tr>
                 </tbody>
@@ -602,7 +602,7 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
               wrapped in{' '}
               <code className="font-mono text-sm">unstable_cache</code> under
               the key{' '}
-              <code className="font-mono text-sm">power-rankings-v3</code>,
+              <code className="font-mono text-sm">power-rankings-v4</code>,
               revalidate 86,400 seconds. First visitor of the day pays for ESPN
               hydration plus 50 epochs of Adam. Everyone else that day gets JSON
               out of cache.
@@ -618,8 +618,10 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
             <p className="text-white/85">
               Side-by-side on the home page, NFL is compared to ESPN FPI
               (including the FPI scalar and W-L-T from the same payload). FBS is
-              compared to the AP Top 25, walking regular-season weeks in reverse
-              until a rankings document exists. Delta in the UI is{' '}
+              compared to the AP Top 25. For the current season we use ESPN’s
+              live rankings payload (including the preseason poll); otherwise we
+              walk regular-season weeks in reverse, then fall back to preseason.
+              Delta in the UI is{' '}
               <span className="font-mono text-sm">espnRank − modelRank</span>:
               positive means we have you higher than the public list.
             </p>
