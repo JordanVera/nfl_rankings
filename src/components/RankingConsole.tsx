@@ -192,7 +192,9 @@ export default function RankingConsole({
                   name="season"
                   value={season}
                   disabled={loading}
-                  onChange={(event) => onSeasonChange(Number(event.target.value))}
+                  onChange={(event) =>
+                    onSeasonChange(Number(event.target.value))
+                  }
                   className={cn(
                     'w-full cursor-pointer appearance-none rounded-md border bg-black/30 py-3 pl-3.5 pr-12',
                     'font-mono text-xl tabular-nums text-white scheme-dark',
