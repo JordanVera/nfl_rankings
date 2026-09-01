@@ -424,22 +424,22 @@ export const fetchEspnFpiRankings = async (
   };
 };
 
+const teamsListUrl = (league: League) => {
+  const config = LEAGUE_CONFIG[league];
+  const params = new URLSearchParams({
+    limit: String(config.teamsLimit),
+  });
+  if (config.groups) {
+    params.set('groups', String(config.groups));
+  }
+  return `${config.siteBase}/teams?${params.toString()}`;
+};
+
 export const fetchLeagueTeams = async (
   league: League,
-  season: number,
+  _season: number,
 ): Promise<EspnTeam[]> => {
-  if (league === 'cfb') {
-    const data = await espnFetchWithRetry<EspnFpiResponse>(
-      `${LEAGUE_CONFIG.cfb.fpi}?season=${season}&limit=200`,
-    );
-    const teams =
-      data.teams
-        ?.map((entry) => mapFpiTeam(league, entry))
-        .filter((team): team is EspnTeam => team !== null) ?? [];
-    return teams.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }
-
-  const data = await espnFetch<{
+  const data = await espnFetchWithRetry<{
     sports?: Array<{
       leagues?: Array<{
         teams?: Array<{
@@ -453,7 +453,7 @@ export const fetchLeagueTeams = async (
         }>;
       }>;
     }>;
-  }>(`${LEAGUE_CONFIG.nfl.siteBase}/teams?limit=32`);
+  }>(teamsListUrl(league));
 
   const teams =
     data.sports?.[0]?.leagues?.[0]?.teams

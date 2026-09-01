@@ -13,7 +13,7 @@ const DEFAULT_LEAGUE: League = 'nfl';
 const getCachedSeasonRankings = unstable_cache(
   async (season: number, league: League) =>
     computeSeasonRankings(season, league),
-  ['power-rankings-v4'],
+  ['power-rankings-v5'],
   { revalidate: 60 * 60 * 24 }
 );
 

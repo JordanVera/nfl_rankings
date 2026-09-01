@@ -9,7 +9,6 @@ import TrainingOverlay from '@/components/TrainingOverlay';
 const SEASONS = [2023, 2024, 2025, 2026];
 const DEFAULT_SEASON = 2025;
 const DEFAULT_LEAGUE: League = 'nfl';
-const CFB_PREVIEW_COUNT = 25;
 
 const rankDelta = (modelRank: number, espnRank: number | undefined) => {
   if (!espnRank) return { label: 'NR', className: 'text-gray-500' };
@@ -104,7 +103,6 @@ function RankingsList({
 export default function PowerRankings() {
   const [season, setSeason] = useState(DEFAULT_SEASON);
   const [league, setLeague] = useState<League>(DEFAULT_LEAGUE);
-  const [showAll, setShowAll] = useState(false);
   const [result, setResult] = useState<RankingsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +126,6 @@ export default function PowerRankings() {
       }
 
       setResult(payload);
-      setShowAll(payload.league !== 'cfb');
     } catch (err) {
       setError(
         err instanceof Error
@@ -148,11 +145,6 @@ export default function PowerRankings() {
     ]),
   );
 
-  const isCfb = result?.league === 'cfb';
-  const modelTeams =
-    isCfb && !showAll
-      ? (result?.rankedTeams.slice(0, CFB_PREVIEW_COUNT) ?? [])
-      : (result?.rankedTeams ?? []);
   const espnScoreLabel =
     result?.espnRankings?.source === 'ESPN FPI' ? 'FPI' : 'Pts';
 
@@ -215,51 +207,36 @@ export default function PowerRankings() {
       )}
 
       {!loading && result && result.rankedTeams.length > 0 && (
-        <>
-          {isCfb && result.rankedTeams.length > CFB_PREVIEW_COUNT ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => setShowAll((value) => !value)}
-                className="text-sm text-primary hover:underline"
-              >
-                {showAll
-                  ? 'Show top 25'
-                  : `Show all ${result.rankedTeams.length} FBS teams`}
-              </button>
-            </div>
-          ) : null}
-          <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
+          <RankingsList
+            title="Our model"
+            subtitle={`${result.season} ${
+              result.league === 'cfb' ? 'FBS' : 'NFL'
+            } box-score model`}
+            teams={result.rankedTeams}
+            scoreLabel="Score"
+            espnRankById={espnRankById}
+            showDelta={Boolean(result.espnRankings)}
+          />
+          {result.espnRankings ? (
             <RankingsList
-              title="Our model"
-              subtitle={`${result.season} ${
-                result.league === 'cfb' ? 'FBS' : 'NFL'
-              } box-score model`}
-              teams={modelTeams}
-              scoreLabel="Score"
-              espnRankById={espnRankById}
-              showDelta={Boolean(result.espnRankings)}
+              title={result.espnRankings.source}
+              subtitle={`${result.season}${
+                result.espnRankings.lastUpdated
+                  ? ` · updated ${new Date(
+                      result.espnRankings.lastUpdated,
+                    ).toLocaleDateString()}`
+                  : ''
+              }`}
+              teams={result.espnRankings.rankedTeams}
+              scoreLabel={espnScoreLabel}
             />
-            {result.espnRankings ? (
-              <RankingsList
-                title={result.espnRankings.source}
-                subtitle={`${result.season}${
-                  result.espnRankings.lastUpdated
-                    ? ` · updated ${new Date(
-                        result.espnRankings.lastUpdated,
-                      ).toLocaleDateString()}`
-                    : ''
-                }`}
-                teams={result.espnRankings.rankedTeams}
-                scoreLabel={espnScoreLabel}
-              />
-            ) : (
-              <p className="text-sm text-gray-400">
-                ESPN rankings were not available for this season.
-              </p>
-            )}
-          </div>
-        </>
+          ) : (
+            <p className="text-sm text-gray-400">
+              ESPN rankings were not available for this season.
+            </p>
+          )}
+        </div>
       )}
       </div>
     </div>

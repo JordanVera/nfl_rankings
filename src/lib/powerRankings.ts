@@ -125,6 +125,10 @@ const preprocessData = (data: GameStats[][]) => {
   return { inputTensor, outputTensor, features };
 };
 
+const SRS_ITERATIONS = 20;
+const CUPCAKE_PERCENTILE = 0.1;
+const CFB_TOP_COUNT = 25;
+
 const createModel = () => {
   const model = tf.sequential();
 
@@ -144,16 +148,35 @@ const createModel = () => {
   return model;
 };
 
-const rankFromPredictions = (
+const percentile = (values: number[], p: number): number => {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.floor(p * (sorted.length - 1)))
+  );
+  return sorted[index];
+};
+
+const meanCenter = (ratings: Record<string, number>) => {
+  const values = Object.values(ratings);
+  if (values.length === 0) return;
+  const shift = mean(values);
+  for (const id of Object.keys(ratings)) {
+    ratings[id] -= shift;
+  }
+};
+
+const meanPredictedMargins = (
   teams: EspnTeam[],
-  features: ProcessedFeature[][],
+  gamesByTeam: GameStats[][],
   predictionValues: number[][]
-): RankedTeam[] => {
+): Record<string, number> => {
   const teamScores: Record<string, number> = {};
   let offset = 0;
 
   teams.forEach((team, index) => {
-    const teamGames = features[index];
+    const teamGames = gamesByTeam[index];
     const teamPredictionScores = predictionValues.slice(
       offset,
       offset + teamGames.length
@@ -170,7 +193,70 @@ const rankFromPredictions = (
       teamGames.length;
   });
 
-  return Object.entries(teamScores)
+  return teamScores;
+};
+
+const applySimpleRatingSystem = (
+  teams: EspnTeam[],
+  gamesByTeam: GameStats[][],
+  predictionValues: number[][]
+): Record<string, number> => {
+  const roster = new Set(teams.map((team) => team.id));
+  const marginsByTeam = new Map<string, number[]>();
+  const opponentsByTeam = new Map<string, string[]>();
+  let offset = 0;
+
+  teams.forEach((team, index) => {
+    const teamGames = gamesByTeam[index];
+    const margins = predictionValues
+      .slice(offset, offset + teamGames.length)
+      .map((value) => value[0]);
+    offset += teamGames.length;
+    marginsByTeam.set(team.id, margins);
+    opponentsByTeam.set(
+      team.id,
+      teamGames.map((game) => game.opponentTeamId)
+    );
+  });
+
+  const ratings = meanPredictedMargins(teams, gamesByTeam, predictionValues);
+  meanCenter(ratings);
+
+  for (let iteration = 0; iteration < SRS_ITERATIONS; iteration += 1) {
+    const cupcakeFloor = percentile(Object.values(ratings), CUPCAKE_PERCENTILE);
+    const next: Record<string, number> = {};
+
+    for (const team of teams) {
+      const margins = marginsByTeam.get(team.id) ?? [];
+      const opponents = opponentsByTeam.get(team.id) ?? [];
+      if (margins.length === 0) {
+        next[team.id] = 0;
+        continue;
+      }
+
+      let sum = 0;
+      for (let gameIndex = 0; gameIndex < margins.length; gameIndex += 1) {
+        const opponentId = opponents[gameIndex];
+        const opponentRating = roster.has(opponentId)
+          ? (ratings[opponentId] ?? cupcakeFloor)
+          : cupcakeFloor;
+        sum += margins[gameIndex] + opponentRating;
+      }
+      next[team.id] = sum / margins.length;
+    }
+
+    Object.assign(ratings, next);
+    meanCenter(ratings);
+  }
+
+  return ratings;
+};
+
+const rankedTeamsFromScores = (
+  teams: EspnTeam[],
+  teamScores: Record<string, number>
+): RankedTeam[] =>
+  Object.entries(teamScores)
     .map(([teamId, score]) => {
       const team = teams.find((entry) => entry.id === teamId);
       return {
@@ -181,11 +267,11 @@ const rankFromPredictions = (
       };
     })
     .sort((a, b) => b.score - a.score);
-};
 
 export const trainAndRankTeams = async (
   teams: EspnTeam[],
-  gamesByTeam: GameStats[][]
+  gamesByTeam: GameStats[][],
+  options: { strengthOfSchedule?: boolean } = {}
 ): Promise<RankedTeam[]> => {
   const teamsWithGames = teams.filter((_, index) => gamesByTeam[index].length > 0);
   const games = gamesByTeam.filter((teamGames) => teamGames.length > 0);
@@ -197,7 +283,7 @@ export const trainAndRankTeams = async (
   await tf.ready();
   tf.engine().startScope();
 
-  const { inputTensor, outputTensor, features } = preprocessData(games);
+  const { inputTensor, outputTensor } = preprocessData(games);
   const model = createModel();
 
   try {
@@ -214,7 +300,11 @@ export const trainAndRankTeams = async (
       : predictions;
     const predictionValues = (await predictionTensor.array()) as number[][];
 
-    return rankFromPredictions(teamsWithGames, features, predictionValues);
+    const teamScores = options.strengthOfSchedule
+      ? applySimpleRatingSystem(teamsWithGames, games, predictionValues)
+      : meanPredictedMargins(teamsWithGames, games, predictionValues);
+
+    return rankedTeamsFromScores(teamsWithGames, teamScores);
   } finally {
     inputTensor.dispose();
     outputTensor.dispose();
@@ -242,7 +332,15 @@ export const computeSeasonRankings = async (
     seasonGamesPromise,
     espnRankingsPromise,
   ]);
-  const rankedTeams = await trainAndRankTeams(teams, gamesByTeam);
+  const rankedTeams = await trainAndRankTeams(teams, gamesByTeam, {
+    strengthOfSchedule: league === 'cfb',
+  });
 
-  return { season, league, rankedTeams, espnRankings };
+  return {
+    season,
+    league,
+    rankedTeams:
+      league === 'cfb' ? rankedTeams.slice(0, CFB_TOP_COUNT) : rankedTeams,
+    espnRankings,
+  };
 };

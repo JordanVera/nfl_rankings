@@ -10,7 +10,7 @@ const PIPELINE = [
   {
     step: '01',
     label: 'Roster the league',
-    detail: '32 NFL clubs, or ~FBS via ESPN FPI',
+    detail: '32 NFL clubs, or FBS via teams?groups=80',
   },
   {
     step: '02',
@@ -27,8 +27,8 @@ const PIPELINE = [
   { step: '06', label: 'Fit MLP', detail: '27→128→64→32→1 · Adam · MSE' },
   {
     step: '07',
-    label: 'Mean-pool',
-    detail: 'Team rank = mean predicted margin',
+    label: 'Rank',
+    detail: 'NFL mean-pool · FBS SRS + Top 25',
   },
 ] as const;
 
@@ -239,7 +239,7 @@ export default function AboutPage() {
                     </td>
                     <td className="px-3 py-2">site.api …/nfl/teams?limit=32</td>
                     <td className="px-3 py-2">
-                      Fitt v3 FPI?season=&amp;limit=200
+                      …/college-football/teams?groups=80
                     </td>
                   </tr>
                   <tr className="border-t border-white/10">
@@ -276,12 +276,14 @@ export default function AboutPage() {
             </div>
             <p className="mb-3 text-white/85">
               NFL teams are the 32 clubs on the league teams endpoint, sorted by
-              display name. College football is not “every NCAA team”: the FPI
-              payload is the FBS set (limit 200), and scoreboards are pinned to
-              ESPN group <code className="font-mono text-primary-300">80</code>{' '}
-              (FBS). If an FBS club plays an FCS opponent, we still ingest the
-              FBS side of that box score; the FCS opponent is dropped because
-              its id is not in the roster.
+              display name. College football is not “every NCAA team”: the
+              roster is ESPN group{' '}
+              <code className="font-mono text-primary-300">80</code> (FBS, limit
+              200), and scoreboards are pinned to the same group. FCS clubs such
+              as North Dakota State never enter the ranking universe. If an FBS
+              club plays an FCS opponent, we still ingest the FBS side of that
+              box score; the FCS opponent is not on the roster, so its predicted
+              margin is later treated as a cupcake.
             </p>
             <p className="mb-3 text-white/85">
               Season slicing is strict. We only keep{' '}
@@ -366,10 +368,12 @@ export default function AboutPage() {
               After parsing, time of possession is converted to seconds and the
               record is projected into a fixed-order{' '}
               <code className="font-mono text-sm">float32</code> vector of
-              length 27. There is no embedding layer, no opponent id, no
-              home/away bit, no week index, no rest days, no QB identity. The
-              model can only “see” what happened on the stat sheet that
-              afternoon.
+              length 27. There is no embedding layer, no opponent id in the
+              tensor, no home/away bit, no week index, no rest days, no QB
+              identity. The MLP can only “see” what happened on the stat sheet
+              that afternoon. Opponent identity is stored alongside the row and
+              used only after <code className="font-mono text-sm">predict</code>
+              , in the FBS Simple Rating System pass.
             </p>
             <div className="space-y-5">
               {FEATURES.map((group) => (
@@ -528,26 +532,37 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
           <section className="mb-10">
             <SectionHeading
               kicker="06 · Inference"
-              title="Ranking is mean predicted margin"
+              title="Mean predicted margin, then strength of schedule"
             />
             <p className="mb-4 text-white/85">
               After training we push the entire season tensor — train and val
               rows together — back through the net. For team{' '}
               <span className="font-mono text-sm">t</span> with games{' '}
-              <span className="font-mono text-sm">Gₜ</span>:
+              <span className="font-mono text-sm">Gₜ</span> the raw strength is
+              mean predicted margin:
             </p>
             <pre className="overflow-x-auto p-4 mb-4 font-mono text-sm rounded-md border border-white/10 bg-black/50 text-primary-200">
               {`sₜ = (1 / |Gₜ|)  Σ_{g ∈ Gₜ}  fθ(x̃_g)`}
             </pre>
             <p className="mb-4 text-white/85">
-              Teams with zero completed regular-season games are dropped before
-              <code className="font-mono text-sm"> fit</code> and never appear.
-              Everyone else is sorted by{' '}
-              <span className="font-mono text-sm">sₜ</span> descending. That
-              scalar is the number you see in the table. It is
-              <em> not</em> a win total, not an Elo rating, and not ESPN FPI. It
-              is the team’s average predicted standardized margin given how its
-              box scores look.
+              NFL stops there. FBS runs a Simple Rating System on top of those
+              per-game margins so a 40-point win over a cupcake is not the same
+              as a 40-point win over a contender. Ratings start at{' '}
+              <span className="font-mono text-sm">sₜ</span>, then iterate ~20
+              times:
+            </p>
+            <pre className="overflow-x-auto p-4 mb-4 font-mono text-sm rounded-md border border-white/10 bg-black/50 text-primary-200">
+              {`rₜ ← (1 / |Gₜ|)  Σ_{g ∈ Gₜ}  ( fθ(x̃_g) + r_opponent(g) )
+r ← r − mean(r)`}
+            </pre>
+            <p className="mb-4 text-white/85">
+              If the opponent is not on the FBS roster (FCS / unknown),{' '}
+              <span className="font-mono text-sm">r_opponent</span> is the 10th
+              percentile of current ratings — a cupcake floor. Mean-centering
+              each round identifies the system. Teams with zero completed
+              regular-season games are dropped before Eastern Michigan Eagles
+              <code className="font-mono text-sm">fit</code> and never appear.
+              FBS is then sliced to the Top 25 for the API, CLI, and UI.
             </p>
             <p className="mb-4 text-white/85">
               Two interpretive caveats, because they matter:
@@ -568,21 +583,20 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
                 a game that already includes the result.
               </li>
               <li>
-                <strong>No explicit strength of schedule.</strong> Opponent
-                quality enters only insofar as the opponent’s box-score
-                production that day sits in the mirrored features. Beating a
-                cupcake 40–10 and beating a contender 40–10 look similar if the
-                yardage/turnover profiles match. There is no Massey, Colley, or
-                Bradley-Terry graph on top. Home field, injuries, weather, and
-                recency are all invisible. A week-1 demolition and a week-18
-                demolition are exchangeable.
+                <strong>SOS is graph-based, not poll-based.</strong> Opponent
+                quality is the opponent’s own evolving rating, not AP votes or
+                FPI. Home field, injuries, weather, and recency are still
+                invisible. A week-1 demolition and a week-18 demolition are
+                still exchangeable except insofar as the opponent’s rating
+                differs.
               </li>
             </ul>
             <p className="text-white/85">
-              So when our list disagrees with FPI or the AP poll, that is not a
-              bug so much as a different objective: FPI is a predictive
-              efficiency rating with opponent adjustments; AP is a human ballot.
-              We are mean-pooling a box-score MLP’s reconstructed margin.
+              So when our list disagrees with FPI or the AP poll, that is not
+              always a bug: FPI is a predictive efficiency rating; AP is a human
+              ballot. We are mean-pooling a box-score MLP’s reconstructed
+              margin, then (for FBS) adjusting that margin for who it came
+              against.
             </p>
           </section>
 
@@ -602,7 +616,7 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
               wrapped in{' '}
               <code className="font-mono text-sm">unstable_cache</code> under
               the key{' '}
-              <code className="font-mono text-sm">power-rankings-v4</code>,
+              <code className="font-mono text-sm">power-rankings-v5</code>,
               revalidate 86,400 seconds. First visitor of the day pays for ESPN
               hydration plus 50 epochs of Adam. Everyone else that day gets JSON
               out of cache.
@@ -637,10 +651,11 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
               sideline into a 27-D vector of yards, efficiency makes, return
               yards, turnovers, flags, clock, and points. Z-score the season.
               Train a 27→128→64→32→1 ReLU MLP with Adam/MSE to reconstruct
-              standardized point differential. Rank teams by the mean of those
-              reconstructions. Compare against FPI or the AP poll so you can
-              argue on the internet with numbers that at least came from a
-              well-specified objective.
+              standardized point differential. Rank NFL by the mean of those
+              reconstructions; rank FBS with an iterative Simple Rating System
+              on top, then keep the Top 25. Compare against FPI or the AP poll
+              so you can argue on the internet with numbers that at least came
+              from a well-specified objective.
             </p>
             <p className="text-white/60">
               If you want the code, the interesting files are{' '}
