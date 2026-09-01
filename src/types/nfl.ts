@@ -73,6 +73,7 @@ export interface RankedTeam {
   score: number;
   logoUrl: string;
   record?: string;
+  gamesPlayed?: number;
 }
 
 export interface EspnPowerRankings {
@@ -149,12 +150,14 @@ export interface EspnScoreboardEvent {
   name?: string;
   season?: { year?: number; type?: number };
   week?: { number?: number };
-  status?: { type?: { name?: string; completed?: boolean } };
+  status?: { type?: { name?: string; state?: string; completed?: boolean } };
 }
 
 export interface SeasonGameData {
   teams: EspnTeam[];
   gamesByTeam: GameStats[][];
+  /** Regular-season games still to be played. Zero once the season is over. */
+  remainingGames: number;
 }
 
 export interface RankingsResponse {
@@ -162,4 +165,6 @@ export interface RankingsResponse {
   league: League;
   rankedTeams: RankedTeam[];
   espnRankings: EspnPowerRankings | null;
+  /** Season whose ratings were carried in as a preseason prior, if any. */
+  priorSeason: number | null;
 }

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'How the model works · Football Power Rankings',
   description:
-    'A technical walkthrough of how the NFL and FBS power rankings model ingests ESPN box scores, builds a 27-D feature tensor, and trains a TensorFlow.js MLP on standardized point differential.',
+    'A technical walkthrough of how the NFL and FBS power rankings model ingests ESPN box scores, builds a 25-D feature tensor, and trains a TensorFlow.js MLP on standardized point differential.',
 };
 
 const PIPELINE = [
@@ -22,13 +22,18 @@ const PIPELINE = [
     label: 'Pull box scores',
     detail: 'Summary API · 10 concurrent workers',
   },
-  { step: '04', label: 'Featurize', detail: '27-D vector per team-game' },
+  { step: '04', label: 'Featurize', detail: '25-D vector per team-game' },
   { step: '05', label: 'Z-score', detail: 'Population μ, σ across the season' },
-  { step: '06', label: 'Fit MLP', detail: '27→128→64→32→1 · Adam · MSE' },
+  { step: '06', label: 'Fit MLP', detail: '25→128→64→32→1 · Adam · MSE' },
   {
     step: '07',
     label: 'Rank',
     detail: 'NFL mean-pool · FBS SRS + Top 25',
+  },
+  {
+    step: '08',
+    label: 'Shrink to prior',
+    detail: 'Blend last season while this one is unfinished',
   },
 ] as const;
 
@@ -121,7 +126,7 @@ const FEATURES = [
     ],
   },
   {
-    group: 'Turnovers, flags, clock, score',
+    group: 'Turnovers, flags, clock',
     rows: [
       ['turnovers', 'turnovers', 'Giveaways. ESPN’s team turnover total.'],
       [
@@ -144,18 +149,13 @@ const FEATURES = [
         'possessionTime',
         'MM:SS → seconds. Numeric ESPN values treated as seconds.',
       ],
-      [
-        'score',
-        'header.competitors.score',
-        'Final points. Also lives in the target.',
-      ],
-      [
-        'opponentScore',
-        'opp score',
-        'Final points allowed. Also lives in the target.',
-      ],
     ],
   },
+] as const;
+
+const TARGET_ONLY = [
+  ['score', 'header.competitors.score', 'Final points.'],
+  ['opponentScore', 'opp score', 'Final points allowed.'],
 ] as const;
 
 function SectionHeading({ kicker, title }: { kicker: string; title: string }) {
@@ -172,8 +172,8 @@ function SectionHeading({ kicker, title }: { kicker: string; title: string }) {
 export default function AboutPage() {
   return (
     <main className="mx-auto m-5 w-full max-w-[1200px] text-white">
-      <article className="bg-gradient-to-br rounded-lg border border-primary/40 from-slate-700 to-slate-900">
-        <div className="p-6 sm:p-8">
+      <article>
+        <div>
           <p className="text-[11px] font-medium tracking-[0.32em] uppercase text-primary">
             System notes · TensorFlow.js · ESPN box scores
           </p>
@@ -183,7 +183,7 @@ export default function AboutPage() {
           <p className="mb-6 max-w-3xl text-white/85">
             This is not a black-box “AI ranking.” It is a small multilayer
             perceptron, trained from scratch in TensorFlow.js on the server,
-            whose job is to map a 27-dimensional box-score vector onto a
+            whose job is to map a 25-dimensional box-score vector onto a
             standardized point differential, then average those predictions by
             team. The real work happens in{' '}
             <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-sm text-primary-300">
@@ -363,18 +363,25 @@ export default function AboutPage() {
           <section className="mb-10">
             <SectionHeading
               kicker="03 · Feature space"
-              title="The 27-dimensional team-game vector"
+              title="The 25-dimensional team-game vector"
             />
             <p className="mb-4 text-white/85">
               After parsing, time of possession is converted to seconds and the
               record is projected into a fixed-order{' '}
               <code className="font-mono text-sm">float32</code> vector of
-              length 27. There is no embedding layer, no opponent id in the
+              length 25. There is no embedding layer, no opponent id in the
               tensor, no home/away bit, no week index, no rest days, no QB
               identity. The MLP can only “see” what happened on the stat sheet
               that afternoon. Opponent identity is stored alongside the row and
               used only after <code className="font-mono text-sm">predict</code>
               , in the FBS Simple Rating System pass.
+            </p>
+            <p className="mb-4 text-white/85">
+              Crucially, the two scoring columns are <em>not</em> in that
+              vector. They are parsed and normalized alongside everything else,
+              but they exist only to build the label. Feeding them in would hand
+              the network the answer, and the MLP would collapse into an
+              identity function on two slots.
             </p>
             <div className="space-y-5">
               {FEATURES.map((group) => (
@@ -408,6 +415,35 @@ export default function AboutPage() {
                   </div>
                 </div>
               ))}
+              <div>
+                <h3 className="mb-2 text-lg font-semibold text-white/50">
+                  Parsed but withheld from the tensor
+                </h3>
+                <div className="overflow-x-auto rounded-md border border-white/10">
+                  <table className="w-full min-w-[40rem] text-left text-sm">
+                    <thead className="text-xs tracking-wider uppercase bg-black/40 text-white/50">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Column</th>
+                        <th className="px-3 py-2 font-medium">ESPN source</th>
+                        <th className="px-3 py-2 font-medium">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TARGET_ONLY.map(([slot, source, notes]) => (
+                        <tr key={slot} className="border-t border-white/10">
+                          <td className="px-3 py-2 font-mono text-[13px] text-white/50">
+                            {slot}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-[13px] text-white/50">
+                            {source}
+                          </td>
+                          <td className="px-3 py-2 text-white/60">{notes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -417,9 +453,10 @@ export default function AboutPage() {
               title="Z-scoring the season, then defining y"
             />
             <p className="mb-4 text-white/85">
-              All team-games in the season are flattened into one matrix{' '}
-              <span className="font-mono text-sm">X ∈ ℝⁿˣ²⁷</span>. For each
-              column <span className="font-mono text-sm">j</span> we compute the{' '}
+              All team-games in the season are flattened into one matrix of 27
+              parsed columns — the 25 that become the input tensor plus the two
+              scoring columns. For each column{' '}
+              <span className="font-mono text-sm">j</span> we compute the{' '}
               <em>population</em> mean and standard deviation (divide by{' '}
               <span className="font-mono text-sm">n</span>, not{' '}
               <span className="font-mono text-sm">n − 1</span>):
@@ -458,12 +495,17 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
               <strong>standardized point differential</strong>. That is the
               entire learning problem.
             </p>
+            <p className="mt-4 text-white/85">
+              Those two columns are then dropped, and only the remaining 25 are
+              stacked into <span className="font-mono text-sm">X ∈ ℝⁿˣ²⁵</span>.
+              The net has to infer the margin from how the game was played.
+            </p>
           </section>
 
           <section className="mb-10">
             <SectionHeading
               kicker="05 · Architecture"
-              title="A four-layer MLP, ~14k parameters"
+              title="A four-layer MLP, ~13.7k parameters"
             />
             <p className="mb-4 text-white/85">
               The network is a vanilla TensorFlow.js{' '}
@@ -474,12 +516,12 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
               classification.
             </p>
             <div className="overflow-x-auto p-4 mb-4 font-mono text-sm leading-7 rounded-md border border-white/10 bg-black/40 text-primary-200">
-              <p>input ℝ²⁷</p>
-              <p>dense 27 → 128 ReLU 3,584 params</p>
+              <p>input ℝ²⁵</p>
+              <p>dense 25 → 128 ReLU 3,328 params</p>
               <p>dense 128 → 64 ReLU 8,256 params</p>
               <p>dense 64 → 32 ReLU 2,080 params</p>
               <p>dense 32 → 1 linear 33 params</p>
-              <p className="text-white/50">≈ 13,953 trainable weights</p>
+              <p className="text-white/50">≈ 13,697 trainable weights</p>
             </div>
             <ul className="pl-5 mb-4 space-y-2 list-disc text-white/85">
               <li>
@@ -508,8 +550,8 @@ x̃ᵢⱼ = (xᵢⱼ − μⱼ) / σⱼ     with σⱼ := 1 if the column is con
             <p className="mb-4 text-white/85">
               Sample size vs capacity is the fun part. An NFL regular season is
               272 games × 2 rows ≈ 544 examples. After the val split you have
-              ~435 training rows to estimate 14k weights. That is an
-              overparameterized interpolating regime. FBS is healthier (~130
+              ~435 training rows to estimate 13.7k weights. That is an
+              overparameterized interpolating regime. FBS is healthier (~146
               teams × ~12 games, still doubled). We are not training a
               foundation model. We are fitting a flexible function of one
               season’s box scores, then immediately evaluating it on those same
@@ -561,27 +603,22 @@ r ← r − mean(r)`}
               <span className="font-mono text-sm">r_opponent</span> is the 10th
               percentile of current ratings — a cupcake floor. Mean-centering
               each round identifies the system. Teams with zero completed
-              regular-season games are dropped before Eastern Michigan Eagles
-              <code className="font-mono text-sm">fit</code> and never appear.
-              FBS is then sliced to the Top 25 for the API, CLI, and UI.
+              regular-season games contribute nothing to{' '}
+              <code className="font-mono text-sm">fit</code>; they are carried
+              by the prior described in §07. FBS is then sliced to the Top 25
+              for the API, CLI, and UI.
             </p>
             <p className="mb-4 text-white/85">
               Two interpretive caveats, because they matter:
             </p>
             <ul className="pl-5 mb-4 space-y-2 list-disc text-white/85">
               <li>
-                <strong>Feature leakage into y.</strong> The last two input
-                coordinates <em>are</em> z-scored score and opponent score, and{' '}
-                <span className="font-mono text-sm">y</span> is exactly their
-                difference. A linear readout of those two slots already solves
-                the task. In principle the hidden layers can ignore rushing
-                yards entirely and just reconstruct margin. In practice Adam,
-                ReLU geometry, and MSE on a small sample let the other 25
-                box-score channels still move the prediction — the net is a
-                nonlinear smoother of “how you won,” not a pure margin
-                calculator — but this is not an out-of-sample “predict the score
-                without knowing the score” model. It is a learned compression of
-                a game that already includes the result.
+                <strong>In-sample, not out-of-sample.</strong> The scoring
+                columns are withheld from the input, so the net genuinely has to
+                predict margin from yards, efficiency, turnovers, and clock. But
+                it is evaluated on the same rows it trained on, including the
+                validation split. This is a fitted summary of a season that has
+                already happened, not a forecast of games it has never seen.
               </li>
               <li>
                 <strong>SOS is graph-based, not poll-based.</strong> Opponent
@@ -603,7 +640,59 @@ r ← r − mean(r)`}
 
           <section className="mb-10">
             <SectionHeading
-              kicker="07 · Serving"
+              kicker="07 · Prior"
+              title="What a season looks like before it has been played"
+            />
+            <p className="mb-4 text-white/85">
+              A rating built from one September Saturday is not a rating. In
+              week 1, most of the league has played zero games and would vanish
+              from the list entirely, while the handful of teams that opened in
+              week 0 would take every top slot on the strength of a single
+              result. That failure is loud in FBS, where a 148-team roster can
+              collapse to the sixteen teams that happened to kick off early.
+            </p>
+            <p className="mb-4 text-white/85">
+              So an unfinished season is not ranked on its own evidence. We
+              detect it directly from the scoreboard: if any regular-season game
+              is still scheduled or in progress, the season is live. Canceled
+              and postponed games sit in ESPN&apos;s{' '}
+              <code className="font-mono text-sm">post</code> state without
+              completing, so they do not keep a finished season looking open
+              forever.
+            </p>
+            <p className="mb-4 text-white/85">
+              When the season is live we run the whole pipeline a second time on
+              the previous season and use it as a preseason prior. The two
+              rating vectors come from independently initialized nets, so
+              neither scale is meaningful on its own; each is standardized to
+              zero mean and unit variance before they are combined. Every team
+              is then shrunk toward its prior by how much it has actually shown
+              you:
+            </p>
+            <pre className="overflow-x-auto p-4 mb-4 font-mono text-sm rounded-md border border-white/10 bg-black/50 text-primary-200">
+              {`w = n / (n + 4)
+rating = w · thisSeason + (1 − w) · lastSeason`}
+            </pre>
+            <p className="mb-4 text-white/85">
+              With <span className="font-mono text-sm">n</span> the games played
+              so far, one game buys a team 20% weight on its own season, four
+              games buy 50%, and twelve games buy 75%. A team that has not
+              kicked off sits entirely on last year&apos;s rating instead of
+              disappearing. A program with no prior at all — new to the division
+              — starts at the league average, which is generous but never enough
+              to reach a Top 25 built from real ratings.
+            </p>
+            <p className="text-white/85">
+              A completed season skips this path entirely: no second pipeline
+              run, no prior, no extra latency. The response carries{' '}
+              <code className="font-mono text-sm">priorSeason</code> so you can
+              always tell which of the two you are looking at.
+            </p>
+          </section>
+
+          <section className="mb-10">
+            <SectionHeading
+              kicker="08 · Serving"
               title="The HTTP path, the cache, and the fake HUD"
             />
             <p className="mb-4 text-white/85">
@@ -617,7 +706,7 @@ r ← r − mean(r)`}
               wrapped in{' '}
               <code className="font-mono text-sm">unstable_cache</code> under
               the key{' '}
-              <code className="font-mono text-sm">power-rankings-v5</code>,
+              <code className="font-mono text-sm">power-rankings-v6</code>,
               revalidate 86,400 seconds. First visitor of the day pays for ESPN
               hydration plus 50 epochs of Adam. Everyone else that day gets JSON
               out of cache.
@@ -644,19 +733,21 @@ r ← r − mean(r)`}
 
           <section>
             <SectionHeading
-              kicker="08 · Bottom line"
+              kicker="09 · Bottom line"
               title="What you are looking at"
             />
             <p className="mb-4 text-white/85">
               Ingest completed regular-season ESPN box scores. Turn each
-              sideline into a 27-D vector of yards, efficiency makes, return
-              yards, turnovers, flags, clock, and points. Z-score the season.
-              Train a 27→128→64→32→1 ReLU MLP with Adam/MSE to reconstruct
-              standardized point differential. Rank NFL by the mean of those
-              reconstructions; rank FBS with an iterative Simple Rating System
-              on top, then keep the Top 25. Compare against FPI or the AP poll
-              so you can argue on the internet with numbers that at least came
-              from a well-specified objective.
+              sideline into a 25-D vector of yards, efficiency makes, return
+              yards, turnovers, flags, and clock — everything except the score.
+              Z-score the season. Train a 25→128→64→32→1 ReLU MLP with Adam/MSE
+              to predict standardized point differential from that vector. Rank
+              NFL by the mean of those predictions; rank FBS with an iterative
+              Simple Rating System on top, then keep the Top 25. If the season
+              is still being played, shrink every team toward last season&apos;s
+              rating in proportion to how little it has played. Compare against
+              FPI or the AP poll so you can argue on the internet with numbers
+              that at least came from a well-specified objective.
             </p>
             <p className="text-white/60">
               If you want the code, the interesting files are{' '}

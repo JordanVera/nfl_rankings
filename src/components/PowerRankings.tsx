@@ -212,7 +212,11 @@ export default function PowerRankings() {
             title="Our model"
             subtitle={`${result.season} ${
               result.league === 'cfb' ? 'FBS' : 'NFL'
-            } box-score model`}
+            } box-score model${
+              result.priorSeason
+                ? ` · season in progress, shrunk toward ${result.priorSeason}`
+                : ''
+            }`}
             teams={result.rankedTeams}
             scoreLabel="Score"
             espnRankById={espnRankById}

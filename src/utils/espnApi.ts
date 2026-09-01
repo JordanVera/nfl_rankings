@@ -522,16 +522,17 @@ export const fetchLeagueTeams = async (
   return teams.sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
-const isCompletedRegularSeasonGame = (
-  event: EspnScoreboardEvent,
-  season: number,
-): event is EspnScoreboardEvent & { id: string } =>
-  Boolean(event.id) &&
-  (event.season?.year === season || event.season?.year === undefined) &&
-  (event.season?.type === REGULAR_SEASON_TYPE ||
-    event.season?.type === undefined) &&
-  (event.status?.type?.completed === true ||
-    event.status?.type?.name === 'STATUS_FINAL');
+const isCompletedGame = (event: EspnScoreboardEvent): boolean =>
+  event.status?.type?.completed === true ||
+  event.status?.type?.name === 'STATUS_FINAL';
+
+// A game only counts as "still to come" while it is upcoming or in progress.
+// Canceled and postponed events sit in the 'post' state without completing, and
+// would otherwise make a finished season look perpetually unfinished.
+const isUpcomingGame = (event: EspnScoreboardEvent): boolean => {
+  const state = event.status?.type?.state;
+  return state === 'pre' || state === 'in';
+};
 
 const scoreboardUrl = (league: League, season: number, week: number) => {
   const config = LEAGUE_CONFIG[league];
@@ -576,10 +577,15 @@ const fetchRegularSeasonWeekNumbers = async (
   );
 };
 
-export const fetchSeasonEventIds = async (
+export interface SeasonEvents {
+  completedIds: string[];
+  remainingGames: number;
+}
+
+export const fetchSeasonEvents = async (
   league: League,
   season: number,
-): Promise<string[]> => {
+): Promise<SeasonEvents> => {
   const weeks = await fetchRegularSeasonWeekNumbers(league, season);
   const weekResults = await Promise.all(
     weeks.map((week) =>
@@ -590,19 +596,26 @@ export const fetchSeasonEventIds = async (
     ),
   );
 
-  const ids = new Set<string>();
+  const completed = new Set<string>();
+  const remaining = new Set<string>();
+
   for (const week of weekResults) {
     const seasonYear = week.season?.year;
     for (const event of week.events ?? []) {
-      const year = event.season?.year ?? seasonYear;
-      if (year !== season) continue;
-      if (isCompletedRegularSeasonGame(event, season)) {
-        ids.add(event.id);
+      if (!event.id) continue;
+      if ((event.season?.year ?? seasonYear) !== season) continue;
+      if ((event.season?.type ?? REGULAR_SEASON_TYPE) !== REGULAR_SEASON_TYPE) {
+        continue;
+      }
+      if (isCompletedGame(event)) {
+        completed.add(event.id);
+      } else if (isUpcomingGame(event)) {
+        remaining.add(event.id);
       }
     }
   }
 
-  return [...ids];
+  return { completedIds: [...completed], remainingGames: remaining.size };
 };
 
 export const fetchSeasonGameData = async (
@@ -610,23 +623,17 @@ export const fetchSeasonGameData = async (
   season: number,
   teams?: EspnTeam[],
 ): Promise<SeasonGameData> => {
-  const [resolvedTeams, eventIds] = await Promise.all([
+  const [resolvedTeams, { completedIds, remainingGames }] = await Promise.all([
     teams ? Promise.resolve(teams) : fetchLeagueTeams(league, season),
-    fetchSeasonEventIds(league, season),
+    fetchSeasonEvents(league, season),
   ]);
-
-  if (eventIds.length === 0) {
-    throw new Error(
-      `No completed regular-season games found for ${league} ${season}.`,
-    );
-  }
 
   const teamIds = new Set(resolvedTeams.map((team) => team.id));
   const gamesByTeamId = new Map<string, GameStats[]>(
     resolvedTeams.map((team) => [team.id, []]),
   );
 
-  const summaries = await mapPool(eventIds, SUMMARY_CONCURRENCY, (eventId) =>
+  const summaries = await mapPool(completedIds, SUMMARY_CONCURRENCY, (eventId) =>
     espnFetchWithRetry<EspnGameSummary>(
       `${LEAGUE_CONFIG[league].siteBase}/summary?event=${eventId}`,
     ),
@@ -642,6 +649,7 @@ export const fetchSeasonGameData = async (
   return {
     teams: resolvedTeams,
     gamesByTeam: resolvedTeams.map((team) => gamesByTeamId.get(team.id) ?? []),
+    remainingGames,
   };
 };
 
