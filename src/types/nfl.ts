@@ -67,4 +67,86 @@ export interface RankedTeam {
   teamId: string;
   teamName: string;
   score: number;
+  logoUrl: string;
+}
+
+export interface EspnTeam {
+  id: string;
+  name: string;
+  displayName: string;
+  abbreviation: string;
+  logoUrl: string;
+}
+
+export interface EspnStat {
+  name?: string;
+  displayValue?: string;
+  value?: number | string;
+}
+
+export interface EspnBoxscoreTeam {
+  team?: {
+    id?: string;
+    abbreviation?: string;
+    displayName?: string;
+    name?: string;
+  };
+  statistics?: EspnStat[];
+}
+
+export interface EspnPlayerGroup {
+  name?: string;
+  keys?: string[];
+  athletes?: Array<{
+    stats?: string[];
+  }>;
+}
+
+export interface EspnBoxscorePlayers {
+  team?: { id?: string; abbreviation?: string };
+  statistics?: EspnPlayerGroup[];
+}
+
+export interface EspnCompetitor {
+  id?: string;
+  homeAway?: string;
+  score?: string | number;
+  winner?: boolean;
+  team?: {
+    id?: string;
+    abbreviation?: string;
+    displayName?: string;
+  };
+}
+
+export interface EspnGameSummary {
+  boxscore?: {
+    teams?: EspnBoxscoreTeam[];
+    players?: EspnBoxscorePlayers[];
+  };
+  header?: {
+    season?: { year?: number; type?: number };
+    competitions?: Array<{
+      status?: { type?: { name?: string } };
+      competitors?: EspnCompetitor[];
+    }>;
+  };
+}
+
+export interface EspnScoreboardEvent {
+  id?: string;
+  name?: string;
+  season?: { year?: number; type?: number };
+  week?: { number?: number };
+  status?: { type?: { name?: string; completed?: boolean } };
+}
+
+export interface SeasonGameData {
+  teams: EspnTeam[];
+  gamesByTeam: GameStats[][];
+}
+
+export interface RankingsResponse {
+  season: number;
+  rankedTeams: RankedTeam[];
 }

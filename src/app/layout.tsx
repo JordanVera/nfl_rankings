@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import Topbar from '@/components/Topbar';
 import '@/styles/globals.css';
 
@@ -16,14 +15,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-black">
-        <Script
-          src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"
-          strategy="beforeInteractive"
-        />
-        <Script
-          src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"
-          strategy="beforeInteractive"
-        />
         <Topbar />
         {children}
       </body>

@@ -1,225 +1,42 @@
 'use client';
 
 import { useState } from 'react';
-import * as tf from '@tensorflow/tfjs';
 import Image from 'next/image';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { ScaleLoader } from 'react-spinners';
-import type {
-  GameStats,
-  ProcessedFeature,
-  RankedTeam,
-  Team,
-} from '@/types/nfl';
+import type { RankedTeam, RankingsResponse } from '@/types/nfl';
 
-const fetchAllTeamsAndReturnTeamIds = async (): Promise<number[]> => {
-  const response = await fetch(
-    `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
-  );
-  const json: Team[] = await response.json();
-  return json.map((team) => team.TeamID);
-};
-
-const fetchSeasonGameData = async (
-  season: number,
-  teamIds: number[]
-): Promise<GameStats[][]> => {
-  const resultsForEachTeamBySeason = await Promise.all(
-    teamIds.map(async (teamId) => {
-      const response = await fetch(
-        `https://api.sportsdata.io/v3/nfl/scores/json/TeamGameStatsBySeason/${season}/${teamId}/all?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
-      );
-      return response.json() as Promise<GameStats[]>;
-    })
-  );
-
-  return resultsForEachTeamBySeason;
-};
-
-const parseTimeOfPossession = (timeStr: string): number => {
-  const [minutes, seconds] = timeStr.split(':').map(Number);
-  return minutes * 60 + seconds;
-};
-
-const mean = (data: number[]): number =>
-  data.reduce((a, b) => a + b, 0) / data.length;
-
-const std = (data: number[]): number => {
-  const dataMean = mean(data);
-  return Math.sqrt(
-    data.reduce((a, b) => a + (b - dataMean) ** 2, 0) / data.length
-  );
-};
-
-const normalizeFeatures = (features: ProcessedFeature[]): ProcessedFeature[] => {
-  const means: Record<string, number> = {};
-  const stds: Record<string, number> = {};
-
-  const featureNames = Object.keys(features[0]) as (keyof ProcessedFeature)[];
-  featureNames.forEach((name) => {
-    means[name] = mean(features.map((f) => f[name]));
-    stds[name] = std(features.map((f) => f[name]));
-  });
-
-  return features.map((f) => {
-    const normalized = { ...f };
-    featureNames.forEach((name) => {
-      normalized[name] = (f[name] - means[name]) / stds[name];
-    });
-    return normalized;
-  });
-};
-
-const preprocessData = (data: GameStats[][]) => {
-  const features: ProcessedFeature[][] = data.map((teamGames) =>
-    teamGames.map((game) => ({
-      offensiveYards: game.OffensiveYards,
-      passingYards: game.PassingYards,
-      rushingYards: game.RushingYards,
-      completionPercentage: game.CompletionPercentage,
-      firstDowns: game.FirstDowns,
-      thirdDownConversions: game.ThirdDownConversions,
-      fourthDownConversions: game.FourthDownConversions,
-      redZoneConversions: game.RedZoneConversions,
-      opponentOffensiveYards: game.OpponentOffensiveYards,
-      opponentPassingYards: game.OpponentPassingYards,
-      opponentRushingYards: game.OpponentRushingYards,
-      opponentCompletionPercentage: game.OpponentCompletionPercentage,
-      opponentFirstDowns: game.OpponentFirstDowns,
-      opponentThirdDownConversions: game.OpponentThirdDownConversions,
-      opponentFourthDownConversions: game.OpponentFourthDownConversions,
-      opponentRedZoneConversions: game.OpponentRedZoneConversions,
-      kickReturnYards: game.KickReturnYards,
-      puntReturnYards: game.PuntReturnYards,
-      fieldGoalsMade: game.FieldGoalsMade,
-      punts: game.Punts,
-      turnovers: game.Giveaways,
-      takeaways: game.Takeaways,
-      penalties: game.Penalties,
-      penaltyYards: game.PenaltyYards,
-      timeOfPossession: parseTimeOfPossession(game.TimeOfPossession),
-      score: game.Score,
-      opponentScore: game.OpponentScore,
-    }))
-  );
-
-  const flattenedFeatures = features.flat();
-  const normalizedFeatures = normalizeFeatures(flattenedFeatures);
-
-  const inputs = normalizedFeatures.map((f) => [
-    f.offensiveYards,
-    f.passingYards,
-    f.rushingYards,
-    f.completionPercentage,
-    f.firstDowns,
-    f.thirdDownConversions,
-    f.fourthDownConversions,
-    f.redZoneConversions,
-    f.opponentOffensiveYards,
-    f.opponentPassingYards,
-    f.opponentRushingYards,
-    f.opponentCompletionPercentage,
-    f.opponentFirstDowns,
-    f.opponentThirdDownConversions,
-    f.opponentFourthDownConversions,
-    f.opponentRedZoneConversions,
-    f.kickReturnYards,
-    f.puntReturnYards,
-    f.fieldGoalsMade,
-    f.punts,
-    f.turnovers,
-    f.takeaways,
-    f.penalties,
-    f.penaltyYards,
-    f.timeOfPossession,
-    f.score,
-    f.opponentScore,
-  ]);
-
-  const outputs = normalizedFeatures.map((f) => [f.score - f.opponentScore]);
-
-  const inputTensor = tf.tensor2d(inputs);
-  const outputTensor = tf.tensor2d(outputs);
-
-  return { inputTensor, outputTensor, features };
-};
-
-const createModel = () => {
-  const model = tf.sequential();
-
-  model.add(
-    tf.layers.dense({ inputShape: [27], units: 128, activation: 'relu' })
-  );
-  model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 1 }));
-
-  model.compile({
-    optimizer: 'adam',
-    loss: 'meanSquaredError',
-    metrics: ['mae'],
-  });
-
-  return model;
-};
+const SEASONS = [2023, 2024, 2025, 2026];
+const DEFAULT_SEASON = 2025;
 
 export default function PowerRankings() {
+  const [season, setSeason] = useState(DEFAULT_SEASON);
   const [rankedTeams, setRankedTeams] = useState<RankedTeam[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGetStandings = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const teamIds = await fetchAllTeamsAndReturnTeamIds();
-      const gameData = await fetchSeasonGameData(2023, teamIds);
-      const { inputTensor, outputTensor, features } = preprocessData(gameData);
+      const response = await fetch(`/api/rankings?season=${season}`);
+      const payload = (await response.json()) as
+        | RankingsResponse
+        | { error?: string };
 
-      const model = createModel();
-
-      await model.fit(inputTensor, outputTensor, {
-        epochs: 50,
-        batchSize: 32,
-        validationSplit: 0.2,
-      });
-
-      const predictions = model.predict(inputTensor);
-      const predictionTensor = Array.isArray(predictions)
-        ? predictions[0]
-        : predictions;
-      const predictionValues = (await predictionTensor.array()) as number[][];
-
-      const teamScores: Record<number, number> = {};
-      teamIds.forEach((teamId, index) => {
-        const teamGames = features[index];
-        const teamPredictionScores = predictionValues.slice(
-          index * teamGames.length,
-          (index + 1) * teamGames.length
+      if (!response.ok || !('rankedTeams' in payload)) {
+        throw new Error(
+          ('error' in payload && payload.error) ||
+            'Failed to generate power rankings.'
         );
-        teamScores[teamId] =
-          teamPredictionScores.reduce((acc, val) => acc + val[0], 0) /
-          teamGames.length;
-      });
+      }
 
-      const response = await fetch(
-        `https://api.sportsdata.io/v3/nfl/scores/json/Teams?key=${process.env.NEXT_PUBLIC_SPORTSDATAIO_API_KEY}`
+      setRankedTeams(payload.rankedTeams);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to generate power rankings.'
       );
-      const teams: Team[] = await response.json();
-      const teamNames = teams.reduce<Record<number, string>>((acc, team) => {
-        acc[team.TeamID] = team.Name;
-        return acc;
-      }, {});
-
-      const ranked: RankedTeam[] = Object.entries(teamScores)
-        .map(([teamId, score]) => ({
-          teamId,
-          teamName: teamNames[Number(teamId)],
-          score,
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      setRankedTeams(ranked);
-    } catch (error) {
-      console.error(error);
+      setRankedTeams([]);
     } finally {
       setLoading(false);
     }
@@ -227,18 +44,48 @@ export default function PowerRankings() {
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <div className="flex justify-center">
+      <div className="flex justify-center items-center gap-3 flex-wrap">
+        <label className="text-white text-sm" htmlFor="season">
+          Season
+        </label>
+        <select
+          id="season"
+          value={season}
+          onChange={(event) => setSeason(Number(event.target.value))}
+          disabled={loading}
+          className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+        >
+          {SEASONS.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
         <button
           onClick={handleGetStandings}
           disabled={loading}
-          className="flex gap-2.5 items-center bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md"
+          className="flex gap-2.5 items-center bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md disabled:opacity-60 disabled:hover:scale-100"
         >
           <AutoAwesomeIcon />
           Train Power Rankings Model
         </button>
       </div>
 
-      {loading && <ScaleLoader color="#36d7b7" />}
+      {loading && (
+        <div className="flex flex-col items-center gap-2">
+          <ScaleLoader color="#36d7b7" />
+          <p className="text-gray-400 text-sm">
+            Fetching ESPN box scores and training the model. First run can take a
+            minute.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-red-400 text-center" role="alert">
+          {error}
+        </p>
+      )}
 
       {!loading && rankedTeams.length > 0 && (
         <table>
@@ -261,12 +108,14 @@ export default function PowerRankings() {
               >
                 <td className="text-right">{index + 1}</td>
                 <td className="flex flex-row items-center gap-5">
-                  <Image
-                    src={`/media/teamLogos/${team.teamName.toLowerCase()}.png`}
-                    height={40}
-                    width={40}
-                    alt={team.teamName}
-                  />
+                  {team.logoUrl ? (
+                    <Image
+                      src={team.logoUrl}
+                      height={40}
+                      width={40}
+                      alt={team.teamName}
+                    />
+                  ) : null}
                   {team.teamName}
                 </td>
                 <td className="ml-auto">{team.score.toFixed(2)}</td>
