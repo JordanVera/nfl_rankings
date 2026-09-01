@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import type { League, RankedTeam, RankingsResponse } from '@/types/nfl';
 import TrainingOverlay from '@/components/TrainingOverlay';
-
-const SEASONS = [2023, 2024, 2025, 2026];
-const DEFAULT_SEASON = 2025;
-const DEFAULT_LEAGUE: League = 'nfl';
+import RankingConsole, {
+  DEFAULT_LEAGUE,
+  DEFAULT_SEASON,
+} from '@/components/RankingConsole';
 
 const rankDelta = (modelRank: number, espnRank: number | undefined) => {
-  if (!espnRank) return { label: 'NR', className: 'text-gray-500' };
+  if (!espnRank) return { label: 'NR', className: 'text-white/40' };
   const delta = espnRank - modelRank;
-  if (delta === 0) return { label: '=', className: 'text-gray-400' };
+  if (delta === 0) return { label: '=', className: 'text-white/40' };
   if (delta > 0) {
     return { label: `+${delta}`, className: 'text-emerald-400' };
   }
@@ -36,30 +35,39 @@ function RankingsList({
   showDelta?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 min-w-0">
-      <div className="flex gap-3 justify-between items-end">
+    <div className="flex flex-col min-w-0 rounded-md border border-white/10 bg-black/30">
+      <div className="flex gap-3 justify-between items-end px-4 py-3 border-b border-white/10">
         <div>
-          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          <h2 className="text-lg font-semibold text-white sm:text-xl">
+            {title}
+          </h2>
           {subtitle ? (
-            <p className="mt-1 text-sm text-gray-400">{subtitle}</p>
+            <p className="mt-1 text-sm text-white/50">{subtitle}</p>
           ) : null}
         </div>
-        <p className="text-xs text-gray-500 uppercase tracking-wider shrink-0 pb-0.5">
+        <p className="text-[10px] tracking-[0.2em] uppercase shrink-0 pb-0.5 text-white/40">
           {showDelta ? `vs ESPN · ${scoreLabel}` : scoreLabel}
         </p>
       </div>
-      <ol className="flex flex-col">
+      <ol className="flex flex-col px-4 [content-visibility:auto]">
         {teams.map((team, index) => {
           const modelRank = index + 1;
           const espnRank = espnRankById?.get(team.teamId);
           const delta = showDelta ? rankDelta(modelRank, espnRank) : null;
+          const isTopThree = modelRank <= 3;
 
           return (
             <li
               key={team.teamId}
-              className="flex items-center gap-3 py-2.5 border-b border-gray-800 last:border-b-0"
+              className="flex items-center gap-3 py-2.5 border-b border-white/10 last:border-b-0"
             >
-              <span className="w-7 text-sm tabular-nums text-right text-gray-400 shrink-0">
+              <span
+                className={`w-7 text-sm tabular-nums text-right shrink-0 ${
+                  isTopThree
+                    ? 'font-semibold text-primary-300'
+                    : 'text-white/40'
+                }`}
+              >
                 {modelRank}
               </span>
               {team.logoUrl ? (
@@ -77,7 +85,7 @@ function RankingsList({
               <span className="flex-1 min-w-0 truncate">
                 {team.teamName}
                 {team.record ? (
-                  <span className="ml-2 text-sm text-gray-500">
+                  <span className="ml-2 text-sm text-white/40">
                     {team.record}
                   </span>
                 ) : null}
@@ -89,7 +97,7 @@ function RankingsList({
                   {delta?.label ?? '—'}
                 </span>
               ) : null}
-              <span className="text-sm tabular-nums text-gray-400 shrink-0">
+              <span className="text-sm tabular-nums text-white/50 shrink-0">
                 {team.score.toFixed(2)}
               </span>
             </li>
@@ -149,99 +157,89 @@ export default function PowerRankings() {
     result?.espnRankings?.source === 'ESPN FPI' ? 'FPI' : 'Pts';
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col gap-6 w-full">
       <TrainingOverlay open={loading} league={league} season={season} />
 
       <div
-        className="flex flex-col gap-5 w-full"
+        className="flex flex-col gap-6 w-full"
         inert={loading ? true : undefined}
-        aria-hidden={loading}
+        aria-hidden={loading ? true : undefined}
       >
-        <div className="flex flex-wrap gap-3 justify-center items-center">
-        <label className="text-sm text-white" htmlFor="league">
-          League
-        </label>
-        <select
-          id="league"
-          value={league}
-          onChange={(event) => {
-            setLeague(event.target.value as League);
+        <RankingConsole
+          league={league}
+          season={season}
+          loading={loading}
+          hasResults={Boolean(result)}
+          onLeagueChange={(next) => {
+            setLeague(next);
             setResult(null);
+            setError(null);
           }}
-          disabled={loading}
-          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700 focus:border-primary focus:outline-none"
-        >
-          <option value="nfl">NFL</option>
-          <option value="cfb">College Football</option>
-        </select>
-        <label className="text-sm text-white" htmlFor="season">
-          Season
-        </label>
-        <select
-          id="season"
-          value={season}
-          onChange={(event) => setSeason(Number(event.target.value))}
-          disabled={loading}
-          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700 focus:border-primary focus:outline-none"
-        >
-          {SEASONS.map((year) => (
-            <option key={year} value={year}>
-              {year}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={handleGetStandings}
-          disabled={loading}
-          className="flex gap-2.5 items-center text-white bg-primary hover:bg-primary-400 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md disabled:opacity-60 disabled:hover:scale-100"
-        >
-          <AutoAwesomeIcon />
-          Train Power Rankings Model
-        </button>
-      </div>
+          onSeasonChange={(next) => {
+            setSeason(next);
+            setResult(null);
+            setError(null);
+          }}
+          onTrain={handleGetStandings}
+        />
 
-      {error && (
-        <p className="text-center text-red-400" role="alert">
-          {error}
-        </p>
-      )}
+        {error ? (
+          <p
+            className="px-4 py-3 text-sm rounded-md border text-red-300 border-red-400/30 bg-red-500/10"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
 
-      {!loading && result && result.rankedTeams.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
-          <RankingsList
-            title="Our model"
-            subtitle={`${result.season} ${
-              result.league === 'cfb' ? 'FBS' : 'NFL'
-            } box-score model${
-              result.priorSeason
-                ? ` · season in progress, shrunk toward ${result.priorSeason}`
-                : ''
-            }`}
-            teams={result.rankedTeams}
-            scoreLabel="Score"
-            espnRankById={espnRankById}
-            showDelta={Boolean(result.espnRankings)}
-          />
-          {result.espnRankings ? (
+        {!loading && !result && !error ? (
+          <div className="px-4 py-10 text-center rounded-md border border-dashed border-white/15">
+            <p className="text-[11px] font-medium tracking-[0.28em] uppercase text-white/40">
+              Awaiting run
+            </p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
+              Rankings land here after training — our model on the left, ESPN
+              on the right.
+            </p>
+          </div>
+        ) : null}
+
+        {!loading && result && result.rankedTeams.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 w-full lg:grid-cols-2">
             <RankingsList
-              title={result.espnRankings.source}
-              subtitle={`${result.season}${
-                result.espnRankings.lastUpdated
-                  ? ` · updated ${new Date(
-                      result.espnRankings.lastUpdated,
-                    ).toLocaleDateString()}`
+              title="Our model"
+              subtitle={`${result.season} ${
+                result.league === 'cfb' ? 'FBS' : 'NFL'
+              } box-score model${
+                result.priorSeason
+                  ? ` · season in progress, shrunk toward ${result.priorSeason}`
                   : ''
               }`}
-              teams={result.espnRankings.rankedTeams}
-              scoreLabel={espnScoreLabel}
+              teams={result.rankedTeams}
+              scoreLabel="Score"
+              espnRankById={espnRankById}
+              showDelta={Boolean(result.espnRankings)}
             />
-          ) : (
-            <p className="text-sm text-gray-400">
-              ESPN rankings were not available for this season.
-            </p>
-          )}
-        </div>
-      )}
+            {result.espnRankings ? (
+              <RankingsList
+                title={result.espnRankings.source}
+                subtitle={`${result.season}${
+                  result.espnRankings.lastUpdated
+                    ? ` · updated ${new Date(
+                        result.espnRankings.lastUpdated,
+                      ).toLocaleDateString()}`
+                    : ''
+                }`}
+                teams={result.espnRankings.rankedTeams}
+                scoreLabel={espnScoreLabel}
+              />
+            ) : (
+              <p className="self-start px-4 py-10 text-sm text-center rounded-md border border-dashed text-white/55 border-white/15">
+                ESPN rankings were not available for this season.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );

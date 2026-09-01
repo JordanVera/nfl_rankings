@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="mx-auto max-w-5xl bg-black">
+      <body className="mx-auto max-w-[1200px] bg-black">
         <Topbar />
         <div className="pt-24">{children}</div>
       </body>
