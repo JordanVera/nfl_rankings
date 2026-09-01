@@ -75,13 +75,13 @@ export default function Topbar() {
                   href={link.href}
                   className={cn(
                     'group relative rounded-full px-2.5 py-1.5 text-[11px] font-medium tracking-widest uppercase transition-colors xl:px-3',
-                    isActive ? 'text-white' : 'text-white/80 hover:text-white',
+                    isActive ? 'text-primary' : 'text-white/80 hover:text-white',
                   )}
                 >
                   {link.label}
                   <span
                     className={cn(
-                      'absolute inset-x-3.5 -bottom-0.5 h-px bg-white transition-transform duration-300',
+                      'absolute inset-x-3.5 -bottom-0.5 h-px bg-primary transition-transform duration-300',
                       isActive
                         ? 'scale-x-100'
                         : 'scale-x-0 group-hover:scale-x-100',
@@ -158,7 +158,7 @@ export default function Topbar() {
                     className={cn(
                       'rounded-xl px-3 py-2.5 text-sm font-medium transition hover:bg-white/10',
                       isActive
-                        ? 'text-white'
+                        ? 'text-primary'
                         : 'text-white/80 hover:text-white',
                     )}
                   >

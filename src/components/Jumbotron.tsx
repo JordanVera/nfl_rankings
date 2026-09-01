@@ -1,6 +1,6 @@
 export default function Jumbotron() {
   return (
-    <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-5 rounded-lg w-full border border-gray-600">
+    <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-5 rounded-lg w-full border border-primary/40">
       <div className="text-white p-6 rounded-lg shadow-lg">
         <h1 className="text-3xl font-bold mb-4">NFL Power Rankings Model</h1>
         <p className="mb-6">

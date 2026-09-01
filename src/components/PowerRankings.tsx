@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { ScaleLoader } from 'react-spinners';
 import type { League, RankedTeam, RankingsResponse } from '@/types/nfl';
+import TrainingOverlay from '@/components/TrainingOverlay';
 
 const SEASONS = [2023, 2024, 2025, 2026];
 const DEFAULT_SEASON = 2025;
@@ -158,7 +158,14 @@ export default function PowerRankings() {
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <div className="flex flex-wrap gap-3 justify-center items-center">
+      <TrainingOverlay open={loading} league={league} season={season} />
+
+      <div
+        className="flex flex-col gap-5 w-full"
+        inert={loading ? true : undefined}
+        aria-hidden={loading}
+      >
+        <div className="flex flex-wrap gap-3 justify-center items-center">
         <label className="text-sm text-white" htmlFor="league">
           League
         </label>
@@ -170,7 +177,7 @@ export default function PowerRankings() {
             setResult(null);
           }}
           disabled={loading}
-          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700"
+          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700 focus:border-primary focus:outline-none"
         >
           <option value="nfl">NFL</option>
           <option value="cfb">College Football</option>
@@ -183,7 +190,7 @@ export default function PowerRankings() {
           value={season}
           onChange={(event) => setSeason(Number(event.target.value))}
           disabled={loading}
-          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700"
+          className="px-3 py-2 text-white bg-gray-800 rounded-md border border-gray-700 focus:border-primary focus:outline-none"
         >
           {SEASONS.map((year) => (
             <option key={year} value={year}>
@@ -194,23 +201,12 @@ export default function PowerRankings() {
         <button
           onClick={handleGetStandings}
           disabled={loading}
-          className="flex gap-2.5 items-center bg-gradient-to-r from-cyan-500 to-blue-500 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md disabled:opacity-60 disabled:hover:scale-100"
+          className="flex gap-2.5 items-center text-white bg-primary hover:bg-primary-400 hover:scale-105 duration-300 ease-in-out px-4 py-2 rounded-md disabled:opacity-60 disabled:hover:scale-100"
         >
           <AutoAwesomeIcon />
           Train Power Rankings Model
         </button>
       </div>
-
-      {loading && (
-        <div className="flex flex-col gap-2 items-center">
-          <ScaleLoader color="#36d7b7" />
-          <p className="text-sm text-gray-400">
-            {league === 'cfb'
-              ? 'Fetching FBS box scores and training the model. First run can take a couple of minutes.'
-              : 'Fetching ESPN box scores and training the model. First run can take a minute.'}
-          </p>
-        </div>
-      )}
 
       {error && (
         <p className="text-center text-red-400" role="alert">
@@ -225,7 +221,7 @@ export default function PowerRankings() {
               <button
                 type="button"
                 onClick={() => setShowAll((value) => !value)}
-                className="text-sm text-cyan-400 hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 {showAll
                   ? 'Show top 25'
@@ -265,6 +261,7 @@ export default function PowerRankings() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

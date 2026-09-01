@@ -1,10 +1,14 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Topbar from '@/components/Navbar';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'Football Power Rankings',
   description: 'ML-powered NFL and college football power rankings',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#FF5F1F',
 };
 
 export default function RootLayout({
